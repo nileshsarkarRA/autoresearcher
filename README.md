@@ -226,6 +226,14 @@ python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experiments 50
 
 ---
 
+## Credits
+
+Big shoutout to **[Andrej Karpathy](https://github.com/karpathy)** — the original `autoresearch` concept and codebase come from his work. His contributions to open-source AI education (nanoGPT, minGPT, llm.c, makemore, and countless lectures) are what make projects like this possible. Go follow him and check out his repos if you haven't already.
+
+This fork adapts his work to run entirely offline on consumer NVIDIA GPUs using local Ollama models.
+
+---
+
 ## License
 
 MIT
