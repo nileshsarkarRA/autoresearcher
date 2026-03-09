@@ -21,3 +21,9 @@ dev/
 
 # Results file
 results.tsv
+
+# Ollama agent outputs (auto-managed, do not commit)
+train.py.best
+train.py.baseline
+agent_log.jsonl
+run_*.log

@@ -1,6 +1,19 @@
 """
 Autoresearch pretraining script. Single-GPU, single-file.
 Cherry-picked and simplified from nanochat.
+
+Works on consumer NVIDIA GPUs (RTX 3060/4060/4070 8-16GB) out of the box.
+Hardware profiles auto-select safe defaults based on detected VRAM:
+  laptop_8gb  — DEPTH=4, SEQ=512, BATCH=2^14, no banded attention
+  laptop_16gb — DEPTH=6, SEQ=512, BATCH=2^15, light sliding window
+  datacenter  — original defaults (DEPTH=8, SEQ=2048, BATCH=2^19)
+
+Override with: AUTORESEARCH_GPU_PROFILE=laptop_8gb uv run train.py
+
+For autonomous overnight research with a local LLM:
+  ollama serve
+  python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
+
 Usage: uv run train.py
 """
 
@@ -10,6 +23,7 @@ os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import gc
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, asdict
 
 import torch
@@ -17,12 +31,52 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from kernels import get_kernel
-cap = torch.cuda.get_device_capability()
-# varunneal's FA3 is Hopper only, use kernels-community on non-Hopper GPUs
-repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
-fa3 = get_kernel(repo).flash_attn_interface
 
 from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
+
+ATTN_IMPL = "sdpa"
+_fa3 = None
+
+
+def setup_attention_backend(device):
+    """Pick the best attention backend available on this machine."""
+    global ATTN_IMPL, _fa3
+    forced = os.getenv("AUTORESEARCH_ATTN_BACKEND", "auto").lower()
+    if device.type != "cuda":
+        ATTN_IMPL = "sdpa"
+        print(f"Attention backend: {ATTN_IMPL} (non-CUDA device)")
+        return
+
+    if forced == "sdpa":
+        ATTN_IMPL = "sdpa"
+        print("Attention backend: sdpa (forced via AUTORESEARCH_ATTN_BACKEND=sdpa)")
+        return
+
+    cap = torch.cuda.get_device_capability()
+    repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
+    try:
+        _fa3 = get_kernel(repo).flash_attn_interface
+        ATTN_IMPL = "fa3"
+        print(f"Attention backend: fa3 ({repo})")
+    except Exception as e:
+        ATTN_IMPL = "sdpa"
+        print(f"Attention backend: sdpa (kernel load failed: {e})")
+
+
+def flash_attention(q, k, v, window_size):
+    if ATTN_IMPL == "fa3":
+        return _fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+
+    # SDPA fallback for broader GPU compatibility (e.g. RTX 40xx laptops).
+    q = q.transpose(1, 2)
+    k = k.transpose(1, 2)
+    v = v.transpose(1, 2)
+    if q.size(1) != k.size(1):
+        repeat = q.size(1) // k.size(1)
+        k = k.repeat_interleave(repeat, dim=1)
+        v = v.repeat_interleave(repeat, dim=1)
+    y = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=0.0)
+    return y.transpose(1, 2)
 
 # ---------------------------------------------------------------------------
 # GPT Model
@@ -89,7 +143,7 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k)
 
-        y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
+        y = flash_attention(q, k, v, window_size)
         y = y.contiguous().view(B, T, -1)
         y = self.c_proj(y)
         return y
@@ -449,17 +503,93 @@ FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 DEPTH = 8               # number of transformer layers
 DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
 
+
+def apply_hardware_profile(device):
+    """Auto-tune defaults so consumer GPUs (e.g. RTX 4060 8GB) can run out of the box."""
+    global ASPECT_RATIO, HEAD_DIM, WINDOW_PATTERN
+    global TOTAL_BATCH_SIZE, DEPTH, DEVICE_BATCH_SIZE
+    global EMBEDDING_LR, MATRIX_LR, WEIGHT_DECAY
+
+    profile = os.getenv("AUTORESEARCH_GPU_PROFILE", "auto").lower()
+    if device.type != "cuda":
+        if profile != "auto":
+            print(f"Ignoring AUTORESEARCH_GPU_PROFILE={profile} on non-CUDA device")
+        return "non_cuda"
+
+    vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
+    selected = profile
+    if profile == "auto":
+        if vram_gb <= 10:
+            selected = "laptop_8gb"
+        elif vram_gb <= 16:
+            selected = "laptop_16gb"
+        else:
+            selected = "datacenter"
+
+    if selected == "laptop_8gb":
+        ASPECT_RATIO = 64
+        HEAD_DIM = 64
+        WINDOW_PATTERN = "L"
+        DEPTH = 4
+        DEVICE_BATCH_SIZE = 4
+        TOTAL_BATCH_SIZE = 2**14
+        EMBEDDING_LR = 0.4
+        MATRIX_LR = 0.02
+        WEIGHT_DECAY = 0.1
+    elif selected == "laptop_16gb":
+        ASPECT_RATIO = 64
+        HEAD_DIM = 64
+        WINDOW_PATTERN = "SL"
+        DEPTH = 6
+        DEVICE_BATCH_SIZE = 8
+        TOTAL_BATCH_SIZE = 2**15
+        EMBEDDING_LR = 0.5
+        MATRIX_LR = 0.03
+        WEIGHT_DECAY = 0.15
+
+    return selected
+
+
+def sync_device(device):
+    if device.type == "cuda":
+        torch.cuda.synchronize()
+
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
 # ---------------------------------------------------------------------------
 
 t_start = time.time()
 torch.manual_seed(42)
-torch.cuda.manual_seed(42)
 torch.set_float32_matmul_precision("high")
-device = torch.device("cuda")
-autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
-H100_BF16_PEAK_FLOPS = 989.5e12
+
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
+if device.type == "cuda":
+    torch.cuda.manual_seed(42)
+
+selected_profile = apply_hardware_profile(device)
+setup_attention_backend(device)
+
+if device.type == "cuda":
+    amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=amp_dtype)
+else:
+    amp_dtype = torch.float32
+    autocast_ctx = nullcontext()
+
+H100_BF16_PEAK_FLOPS = 989.5e12 if (device.type == "cuda" and torch.cuda.get_device_capability() == (9, 0)) else None
+
+print(f"Device: {device}")
+if device.type == "cuda":
+    props = torch.cuda.get_device_properties(0)
+    print(f"GPU: {props.name} ({props.total_memory / (1024 ** 3):.1f} GB)")
+print(f"GPU profile: {selected_profile}")
+print(f"AMP dtype: {amp_dtype}")
 
 tokenizer = Tokenizer.from_directory()
 vocab_size = tokenizer.get_vocab_size()
@@ -492,7 +622,10 @@ num_flops_per_token = model.estimate_flops()
 print(f"Estimated FLOPs per token: {num_flops_per_token:e}")
 
 tokens_per_fwdbwd = DEVICE_BATCH_SIZE * MAX_SEQ_LEN
-assert TOTAL_BATCH_SIZE % tokens_per_fwdbwd == 0
+if TOTAL_BATCH_SIZE % tokens_per_fwdbwd != 0:
+    adjusted = max(tokens_per_fwdbwd, (TOTAL_BATCH_SIZE // tokens_per_fwdbwd) * tokens_per_fwdbwd)
+    print(f"Adjusting TOTAL_BATCH_SIZE from {TOTAL_BATCH_SIZE} to {adjusted} for divisibility")
+    TOTAL_BATCH_SIZE = adjusted
 grad_accum_steps = TOTAL_BATCH_SIZE // tokens_per_fwdbwd
 
 optimizer = model.setup_optimizer(
@@ -504,9 +637,10 @@ optimizer = model.setup_optimizer(
     weight_decay=WEIGHT_DECAY,
 )
 
-model = torch.compile(model, dynamic=False)
+if device.type == "cuda":
+    model = torch.compile(model, dynamic=False)
 
-train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train")
+train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train", device=device)
 x, y, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
@@ -540,7 +674,7 @@ total_training_time = 0
 step = 0
 
 while True:
-    torch.cuda.synchronize()
+    sync_device(device)
     t0 = time.time()
     for micro_step in range(grad_accum_steps):
         with autocast_ctx:
@@ -570,7 +704,7 @@ while True:
         print("FAIL")
         exit(1)
 
-    torch.cuda.synchronize()
+    sync_device(device)
     t1 = time.time()
     dt = t1 - t0
 
@@ -583,7 +717,7 @@ while True:
     debiased_smooth_loss = smooth_train_loss / (1 - ema_beta**(step + 1))
     pct_done = 100 * progress
     tok_per_sec = int(TOTAL_BATCH_SIZE / dt)
-    mfu = 100 * num_flops_per_token * TOTAL_BATCH_SIZE / dt / H100_BF16_PEAK_FLOPS
+    mfu = (100 * num_flops_per_token * TOTAL_BATCH_SIZE / dt / H100_BF16_PEAK_FLOPS) if H100_BF16_PEAK_FLOPS else float("nan")
     remaining = max(0, TIME_BUDGET - total_training_time)
 
     print(f"\rstep {step:05d} ({pct_done:.1f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt*1000:.0f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.1f}% | epoch: {epoch} | remaining: {remaining:.0f}s    ", end="", flush=True)
@@ -609,13 +743,16 @@ total_tokens = step * TOTAL_BATCH_SIZE
 # Final eval
 model.eval()
 with autocast_ctx:
-    val_bpb = evaluate_bpb(model, tokenizer, DEVICE_BATCH_SIZE)
+    val_bpb = evaluate_bpb(model, tokenizer, DEVICE_BATCH_SIZE, device=device)
 
 # Final summary
 t_end = time.time()
 startup_time = t_start_training - t_start
-steady_state_mfu = 100 * num_flops_per_token * TOTAL_BATCH_SIZE * (step - 10) / total_training_time / H100_BF16_PEAK_FLOPS if total_training_time > 0 else 0
-peak_vram_mb = torch.cuda.max_memory_allocated() / 1024 / 1024
+if total_training_time > 0 and H100_BF16_PEAK_FLOPS:
+    steady_state_mfu = 100 * num_flops_per_token * TOTAL_BATCH_SIZE * (step - 10) / total_training_time / H100_BF16_PEAK_FLOPS
+else:
+    steady_state_mfu = float("nan")
+peak_vram_mb = (torch.cuda.max_memory_allocated() / 1024 / 1024) if device.type == "cuda" else 0.0
 
 print("---")
 print(f"val_bpb:          {val_bpb:.6f}")

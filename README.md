@@ -2,87 +2,229 @@
 
 ![teaser](progress.png)
 
-*One day, frontier AI research used to be done by meat computers in between eating, sleeping, having other fun, and synchronizing once in a while using sound wave interconnect in the ritual of "group meeting". That era is long gone. Research is now entirely the domain of autonomous swarms of AI agents running across compute cluster megastructures in the skies. The agents claim that we are now in the 10,205th generation of the code base, in any case no one could tell if that's right or wrong as the "code" is now a self-modifying binary that has grown beyond human comprehension. This repo is the story of how it all began. -@karpathy, March 2026*.
+Neural networks are just matrix multiplications stacked on top of each other, and somehow they work. The research process that discovers better ways to stack them is itself a loop — propose, evaluate, keep or discard. This repo automates that loop.
 
-The idea: give an AI agent a small but real LLM training setup and let it experiment autonomously overnight. It modifies the code, trains for 5 minutes, checks if the result improved, keeps or discards, and repeats. You wake up in the morning to a log of experiments and (hopefully) a better model. The training code here is a simplified single-GPU implementation of [nanochat](https://github.com/karpathy/nanochat). The core idea is that you're not touching any of the Python files like you normally would as a researcher. Instead, you are programming the `program.md` Markdown files that provide context to the AI agents and set up your autonomous research org. The default `program.md` in this repo is intentionally kept as a bare bones baseline, though it's obvious how one would iterate on it over time to find the "research org code" that achieves the fastest research progress, how you'd add more agents to the mix, etc. A bit more context on this project is here in this [tweet](https://x.com/karpathy/status/2029701092347630069).
+You don't need a datacenter. You don't need API credits. You need a GPU, a free evening, and the willingness to let a machine run experiments while you sleep.
 
-## How it works
+autoresearch edits `train.py`, trains for exactly 5 minutes, reads `val_bpb`, keeps what improved, reverts what didn't. Repeat 50 times overnight. Wake up to a better model.
 
-The repo is deliberately kept small and only really has a three files that matter:
+This fork runs the entire loop on a consumer NVIDIA GPU. RTX 3060, 4060, 4070 — laptop or desktop, 8GB VRAM. The research agent is a local Ollama model. No cloud. No fees. Completely offline.
 
-- **`prepare.py`** — fixed constants, one-time data prep (downloads training data, trains a BPE tokenizer), and runtime utilities (dataloader, evaluation). Not modified.
-- **`train.py`** — the single file the agent edits. Contains the full GPT model, optimizer (Muon + AdamW), and training loop. Everything is fair game: architecture, hyperparameters, optimizer, batch size, etc. **This file is edited and iterated on by the agent**.
-- **`program.md`** — baseline instructions for one agent. Point your agent here and let it go. **This file is edited and iterated on by the human**.
+---
 
-By design, training runs for a **fixed 5-minute time budget** (wall clock, excluding startup/compilation), regardless of the details of your compute. The metric is **val_bpb** (validation bits per byte) — lower is better, and vocab-size-independent so architectural changes are fairly compared.
+## The Loop
 
-## Quick start
+```python
+while True:
+    propose change to train.py      # local Ollama model reads history, proposes one edit
+    train for exactly 5 minutes     # uv run train.py
+    if val_bpb improved:
+        keep it                     # save to train.py.best
+    else:
+        revert                      # restore previous version
+    log result
+```
 
-**Requirements:** A single NVIDIA GPU (tested on H100), Python 3.10+, [uv](https://docs.astral.sh/uv/).
+That is the entire algorithm. The power is in the repetition. Each experiment is 5 minutes. Overnight you get 50 of them. The agent builds up a history of what worked and what didn't, and its proposals get progressively more targeted.
+
+The metric is `val_bpb` — validation bits per byte. Lower is better. It is vocabulary-size-independent, which means you can fairly compare a model with 3 attention heads against one with 6, or GELU against SiLU, without the number being contaminated by tokenizer choices.
+
+---
+
+## This Fork: Consumer GPUs
+
+The original autoresearch assumed datacenter hardware. On an H100 you have 80GB of VRAM and memory is rarely the constraint. On a laptop RTX 4060 you have 8GB, and Ollama already uses 5 of them.
+
+This fork makes it work anyway. Four changes to the defaults:
+
+- `DEPTH = 4` — cuts parameters by roughly 4x. The model fits in ~3GB with room to breathe.
+- `MAX_SEQ_LEN = 512` — enough context for meaningful language modeling, not enough to OOM.
+- `TOTAL_BATCH_SIZE = 2**14` — ~16K tokens per step, tuned for the 3GB training footprint.
+- `WINDOW_PATTERN = "L"` — disables banded attention. Ampere and Ada handle sliding-window attention poorly at small batch sizes.
+
+Ollama takes ~5GB. Training takes ~3GB. On 8GB they coexist. Barely, but reliably.
+
+If you have any modern NVIDIA laptop or desktop GPU, this works. See `GUIDE.md` for the exact setup steps.
+
+---
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `train.py` | Model, optimizer, training loop — mutated by the agent each experiment |
+| `prepare.py` | One-time data download and BPE tokenizer training |
+| `program.md` | Research policy: constraints, metric, what to try — fed to the agent each iteration |
+| `ollama_agent.py` | The autonomous loop: proposes, runs, evaluates, keeps or reverts |
+| `GUIDE.md` | Complete setup guide for RTX 4060 8GB + Ollama |
+
+---
+
+## Setup and Running
+
+You need three things installed before anything else: Python 3.10+, Ollama, and uv.
+
+**Step 1 — Install Ollama**
 
 ```bash
+# Linux / WSL
+curl -fsSL https://ollama.com/install.sh | sh
 
-# 1. Install uv project manager (if you don't already have it)
+# Windows (PowerShell, run as Administrator)
+winget install Ollama.Ollama
+
+# macOS
+brew install ollama
+```
+
+After installing, verify it works:
+
+```bash
+ollama --version
+```
+
+**Step 2 — Install uv**
+
+`uv` is a fast Python package manager. It replaces pip/venv for this project.
+
+```bash
+# Linux / macOS / WSL
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Install dependencies
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Restart your terminal after installing, then verify:
+
+```bash
+uv --version
+```
+
+**Step 3 — Clone and install**
+
+```bash
+git clone https://github.com/nileshsarkarRA/autoresearcher.git
+cd autoresearcher/autoresearch
+
 uv sync
+```
 
-# 3. Download data and train tokenizer (one-time, ~2 min)
+**Step 4 — Download data and train tokenizer (one-time, ~2 min)**
+
+```bash
 uv run prepare.py
+```
 
-# 4. Manually run a single training experiment (~5 min)
+This downloads the training corpus and builds a BPE tokenizer. You only do this once.
+
+**Step 5 — Pull the coding model**
+
+```bash
+ollama pull qwen2.5-coder:7b
+```
+
+~4.5GB download. This is the model that will propose code changes.
+
+**Step 6 — Verify a single training run**
+
+```bash
+# Terminal 1 — start Ollama server (keep this running)
+ollama serve
+
+# Terminal 2 — run one training experiment manually
 uv run train.py
 ```
 
-If the above commands all work ok, your setup is working and you can go into autonomous research mode.
-
-## Running the agent
-
-Simply spin up your Claude/Codex or whatever you want in this repo (and disable all permissions), then you can prompt something like:
+The run takes about 5 minutes. At the end you should see something like:
 
 ```
-Hi have a look at program.md and let's kick off a new experiment! let's do the setup first.
+val_bpb=1.4823
 ```
 
-The `program.md` file is essentially a super lightweight "skill".
+That number is your baseline. Lower is better. If you see it, everything is working.
 
-## Project structure
+**Step 7 — Run the agent overnight**
+
+```bash
+# Terminal 1 — already running ollama serve
+
+# Terminal 2
+cd autoresearch
+python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
+```
+
+Walk away. Come back in 5 hours. The agent will have run 50 experiments — each one proposing a change, training for 5 minutes, measuring `val_bpb`, and deciding whether to keep or revert.
+
+What you'll see:
 
 ```
-prepare.py      — constants, data prep + runtime utilities (do not modify)
-train.py        — model, optimizer, training loop (agent modifies this)
-program.md      — agent instructions
-pyproject.toml  — dependencies
+============================================================
+  AutoResearch Ollama Agent | model=qwen2.5-coder:7b | experiments=50
+============================================================
+[22:01:08] Model 'qwen2.5-coder:7b' is ready.
+[22:01:08] Running baseline experiment to establish starting val_bpb...
+[22:06:12] Training finished in 5.1min -- val_bpb = 1.4823
+============================================================
+  Experiment 1/50 | Best val_bpb = 1.4823
+============================================================
+[22:06:14] Querying qwen2.5-coder:7b...
+[22:06:19] Proposal: Warmup steps are too short for this batch size...
+[22:11:22] IMPROVEMENT. val_bpb=1.4701 (delta=+0.0122) -- keeping change.
 ```
 
-## Design choices
+**Step 8 — Check results in the morning**
 
-- **Single file to modify.** The agent only touches `train.py`. This keeps the scope manageable and diffs reviewable.
-- **Fixed time budget.** Training always runs for exactly 5 minutes, regardless of your specific platform. This means you can expect approx 12 experiments/hour and approx 100 experiments while you sleep. There are two upsides of this design decision. First, this makes experiments directly comparable regardless of what the agent changes (model size, batch size, architecture, etc). Second, this means that autoresearch will find the most optimal model for your platform in that time budget. The downside is that your runs (and results) become not comparable to other people running on other compute platforms.
-- **Self-contained.** No external dependencies beyond PyTorch and a few small packages. No distributed training, no complex configs. One GPU, one file, one metric.
+```bash
+cat agent_log.jsonl | python -c "
+import json, sys
+exps = [json.loads(l) for l in sys.stdin]
+kept = [e for e in exps if e.get('kept')]
+print(f'Experiments run:   {len(exps)}')
+print(f'Improvements kept: {len(kept)}')
+if kept:
+    best = min(e['best_bpb'] for e in kept if 'best_bpb' in e)
+    print(f'Best val_bpb:      {best:.4f}')
+"
+```
 
-## Platform support
+The best `train.py` is automatically saved to `train.py.best` and restored at the end of the run. Your original is preserved in `train.py.baseline`.
 
-This code currently requires that you have a single NVIDIA GPU. In principle it is quite possible to support CPU, MPS and other platforms but this would also bloat the code. I'm not 100% sure that I want to take this on personally right now. People can reference (or have their agents reference) the full/parent nanochat repository that has wider platform support and shows the various solutions (e.g. a Flash Attention 3 kernels fallback implementation, generic device support, autodetection, etc.), feel free to create forks or discussions for other platforms and I'm happy to link to them here in the README in some new notable forks section or etc.
+---
 
-Seeing as there seems to be a lot of interest in tinkering with autoresearch on much smaller compute platforms than an H100, a few extra words. If you're going to try running autoresearch on smaller computers (Macbooks etc.), I'd recommend one of the forks below. On top of this, here are some recommendations for how to tune the defaults for much smaller models for aspiring forks:
+## Agent Options
 
-1. To get half-decent results I'd use a dataset with a lot less entropy, e.g. this [TinyStories dataset](https://huggingface.co/datasets/karpathy/tinystories-gpt4-clean). These are GPT-4 generated short stories. Because the data is a lot narrower in scope, you will see reasonable results with a lot smaller models (if you try to sample from them after training).
-2. You might experiment with decreasing `vocab_size`, e.g. from 8192 down to 4096, 2048, 1024, or even - simply byte-level tokenizer with 256 possibly bytes after utf-8 encoding.
-3. In `prepare.py`, you'll want to lower `MAX_SEQ_LEN` a lot, depending on the computer even down to 256 etc. As you lower `MAX_SEQ_LEN`, you may want to experiment with increasing `DEVICE_BATCH_SIZE` in `train.py` slightly to compensate. The number of tokens per fwd/bwd pass is the product of these two.
-4. Also in `prepare.py`, you'll want to decrease `EVAL_TOKENS` so that your validation loss is evaluated on a lot less data.
-5. In `train.py`, the primary single knob that controls model complexity is the `DEPTH` (default 8, here). A lot of variables are just functions of this, so e.g. lower it down to e.g. 4.
-6. You'll want to most likely use `WINDOW_PATTERN` of just "L", because "SSSL" uses alternating banded attention pattern that may be very inefficient for you. Try it.
-7. You'll want to lower `TOTAL_BATCH_SIZE` a lot, but keep it powers of 2, e.g. down to `2**14` (~16K) or so even, hard to tell.
+```bash
+# Run more experiments for a longer overnight session
+python ollama_agent.py --experiments 100
 
-I think these would be the reasonable hyperparameters to play with. Ask your favorite coding agent for help and copy paste them this guide, as well as the full source code.
+# Use a smaller model if VRAM is tight
+python ollama_agent.py --model llama3.2:3b --experiments 50
 
-## Notable forks
+# Use a remote Ollama instance
+python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experiments 50
+```
 
-- [miolini/autoresearch-macos](https://github.com/miolini/autoresearch-macos) (MacOS)
-- [trevin-creator/autoresearch-mlx](https://github.com/trevin-creator/autoresearch-mlx) (MacOS)
-- [jsegov/autoresearch-win-rtx](https://github.com/jsegov/autoresearch-win-rtx) (Windows)
+---
+
+## Model Choices for 8GB VRAM
+
+| Model | VRAM | Code Quality |
+|---|---|---|
+| `qwen2.5-coder:7b` | ~5GB | Excellent — recommended |
+| `deepseek-coder:6.7b` | ~4.5GB | Excellent |
+| `codellama:7b` | ~4GB | Good |
+| `llama3.2:3b` | ~2GB | OK — use if VRAM is tight |
+
+---
+
+## Notable Forks
+
+- https://github.com/miolini/autoresearch-macos
+- https://github.com/trevin-creator/autoresearch-mlx
+- https://github.com/jsegov/autoresearch-win-rtx
+
+---
 
 ## License
 
