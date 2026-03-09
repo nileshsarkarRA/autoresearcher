@@ -1,12 +1,12 @@
 """
-One-time data preparation for autoresearch experiments.
+One-time data preparation for autoresearcher experiments.
 Downloads data shards and trains a BPE tokenizer.
 
 Usage:
     uv run prepare.py                  # full prep (download + tokenizer)
     uv run prepare.py --num-shards 8   # download only 8 shards (for testing)
 
-Data and tokenizer are stored in ~/.cache/autoresearch/.
+Data and tokenizer are stored in ~/.cache/autoresearcher/.
 
 Defaults here are tuned for consumer GPUs (RTX 3060/4060/4070, 8-16GB VRAM).
 For datacenter GPUs you can raise MAX_SEQ_LEN and EVAL_TOKENS.
@@ -40,7 +40,7 @@ EVAL_TOKENS = 262144     # validation tokens, 2^18 (fast enough, signal-preservi
 # Configuration
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "autoresearch")
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "autoresearcher")
 DATA_DIR = os.path.join(CACHE_DIR, "data")
 TOKENIZER_DIR = os.path.join(CACHE_DIR, "tokenizer")
 BASE_URL = "https://huggingface.co/datasets/karpathy/climbmix-400b-shuffle/resolve/main"
@@ -379,7 +379,7 @@ def evaluate_bpb(model, tokenizer, batch_size, device=None):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearch")
+    parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearcher")
     parser.add_argument("--num-shards", type=int, default=10, help="Number of training shards to download (-1 = all). Val shard is always pinned.")
     parser.add_argument("--download-workers", type=int, default=8, help="Number of parallel download workers")
     args = parser.parse_args()

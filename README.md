@@ -105,7 +105,7 @@ uv --version
 
 ```bash
 git clone https://github.com/nileshsarkarRA/autoresearcher.git
-cd autoresearcher/autoresearch
+cd autoresearcher
 
 uv sync
 ```
@@ -150,7 +150,7 @@ That number is your baseline. Lower is better. If you see it, everything is work
 # Terminal 1 — already running ollama serve
 
 # Terminal 2
-cd autoresearch
+cd autoresearcher
 python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
 ```
 

@@ -1,5 +1,5 @@
 [project]
-name = "autoresearch"
+name = "autoresearcher"
 version = "0.1.0"
 description = "Autonomous LLM pretraining research loop — runs on consumer NVIDIA GPUs"
 readme = "README.md"

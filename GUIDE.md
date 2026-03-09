@@ -66,7 +66,7 @@ WINDOW_PATTERN = "L"    # disables banded attention — it's slow on consumer ca
 DEVICE_BATCH_SIZE = 4   # per-GPU batch; lower to 2 if you hit OOM
 ```
 
-Why these numbers: `DEPTH=4` cuts parameters by roughly 4x. `WINDOW_PATTERN="L"` removes a fancy sliding-window attention pattern that the Ampere/Ada architectures handle poorly at small batch sizes. The result is a model that genuinely improves in 5 minutes instead of barely moving.
+Why these numbers: `DEPTH=4` cuts parameters by roughly 4x. `WINDOW_PATTERN="L"` removes a fancy sliding-window attention pattern that the Ampere/Ada architectures handle poorly at small batch sizes. The result is a model that genuinely improves in 30 minutes instead of barely moving.
 
 ---
 
@@ -86,7 +86,7 @@ Downloads training data and trains a BPE tokenizer. Run once. Never again.
 uv run train.py
 ```
 
-Should take ~5 minutes and end with `val_bpb=X.XXXX`. That number is your baseline. The agent will spend the night trying to lower it.
+Should take ~30 minutes and end with `val_bpb=X.XXXX`. That number is your baseline. The agent will spend the night trying to lower it.
 
 **OOM?** Lower `DEVICE_BATCH_SIZE` from 4 to 2 in `train.py`.
 

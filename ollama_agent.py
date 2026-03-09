@@ -270,12 +270,12 @@ Based on the history above, propose your next experiment. Remember:
 # -- Main Agent Loop ----------------------------------------------------------
 
 def run_agent(model: str, base_url: str, n_experiments: int):
-    banner(f"AutoResearch Ollama Agent | model={model} | experiments={n_experiments}")
+    banner(f"AutoResearcher Ollama Agent | model={model} | experiments={n_experiments}")
     check_ollama(base_url, model)
 
     for fname in [TRAIN_FILE, PROGRAM_FILE]:
         if not fname.exists():
-            log(f"{fname} not found. Are you in the autoresearch directory?", "red")
+            log(f"{fname} not found. Are you in the autoresearcher directory?", "red")
             sys.exit(1)
 
     shutil.copy(TRAIN_FILE, BASELINE_FILE)
@@ -421,7 +421,7 @@ def run_agent(model: str, base_url: str, n_experiments: int):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Ollama-powered AutoResearch agent for karpathy/autoresearch"
+        description="Ollama-powered AutoResearcher agent for nileshsarkarRA/autoresearcher"
     )
     parser.add_argument(
         "--model", default=DEFAULT_MODEL,

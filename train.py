@@ -1,5 +1,5 @@
 """
-Autoresearch pretraining script. Single-GPU, single-file.
+Autoresearcher pretraining script. Single-GPU, single-file.
 Cherry-picked and simplified from nanochat.
 
 Works on consumer NVIDIA GPUs (RTX 3060/4060/4070 8-16GB) out of the box.
@@ -8,7 +8,7 @@ Hardware profiles auto-select safe defaults based on detected VRAM:
   laptop_16gb — DEPTH=6, SEQ=512, BATCH=2^15, light sliding window
   datacenter  — original defaults (DEPTH=8, SEQ=2048, BATCH=2^19)
 
-Override with: AUTORESEARCH_GPU_PROFILE=laptop_8gb uv run train.py
+Override with: AUTORESEARCHER_GPU_PROFILE=laptop_8gb uv run train.py
 
 For autonomous overnight research with a local LLM:
   ollama serve
@@ -41,7 +41,7 @@ _fa3 = None
 def setup_attention_backend(device):
     """Pick the best attention backend available on this machine."""
     global ATTN_IMPL, _fa3
-    forced = os.getenv("AUTORESEARCH_ATTN_BACKEND", "auto").lower()
+    forced = os.getenv("AUTORESEARCHER_ATTN_BACKEND", "auto").lower()
     if device.type != "cuda":
         ATTN_IMPL = "sdpa"
         print(f"Attention backend: {ATTN_IMPL} (non-CUDA device)")
@@ -49,7 +49,7 @@ def setup_attention_backend(device):
 
     if forced == "sdpa":
         ATTN_IMPL = "sdpa"
-        print("Attention backend: sdpa (forced via AUTORESEARCH_ATTN_BACKEND=sdpa)")
+        print("Attention backend: sdpa (forced via AUTORESEARCHER_ATTN_BACKEND=sdpa)")
         return
 
     cap = torch.cuda.get_device_capability()
@@ -510,10 +510,10 @@ def apply_hardware_profile(device):
     global TOTAL_BATCH_SIZE, DEPTH, DEVICE_BATCH_SIZE
     global EMBEDDING_LR, MATRIX_LR, WEIGHT_DECAY
 
-    profile = os.getenv("AUTORESEARCH_GPU_PROFILE", "auto").lower()
+    profile = os.getenv("AUTORESEARCHER_GPU_PROFILE", "auto").lower()
     if device.type != "cuda":
         if profile != "auto":
-            print(f"Ignoring AUTORESEARCH_GPU_PROFILE={profile} on non-CUDA device")
+            print(f"Ignoring AUTORESEARCHER_GPU_PROFILE={profile} on non-CUDA device")
         return "non_cuda"
 
     vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
