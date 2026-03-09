@@ -33,7 +33,7 @@ import torch
 # Raise MAX_SEQ_LEN / EVAL_TOKENS if you have a datacenter card.
 
 MAX_SEQ_LEN = 512        # context length (2048 for datacenter GPUs)
-TIME_BUDGET = 300        # training time budget in seconds (5 minutes)
+TIME_BUDGET = 1800       # training time budget in seconds (30 minutes)
 EVAL_TOKENS = 262144     # validation tokens, 2^18 (fast enough, signal-preserving)
 
 # ---------------------------------------------------------------------------

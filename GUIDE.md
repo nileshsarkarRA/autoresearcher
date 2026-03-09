@@ -1,8 +1,8 @@
-# AutoResearch — Consumer GPU Setup Guide
+# AutoResearcher — Consumer GPU Setup Guide
 
 You have an RTX 4060 (or similar 8GB card). This guide gets you from zero to a running overnight research loop in under 30 minutes.
 
-The original autoresearch was written for datacenter GPUs. These settings make it work on yours.
+The original autoresearcher was written for datacenter GPUs. These settings make it work on yours.
 
 ---
 

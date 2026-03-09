@@ -1,10 +1,10 @@
-# AutoResearch Program — RTX 4060 Laptop (8GB VRAM)
+# AutoResearcher Program — RTX 4060 Laptop (8GB VRAM)
 
 ## Hardware
 
 - GPU: NVIDIA RTX 4060 Laptop, 8GB VRAM
 - RAM: 16GB
-- Training budget: exactly 5 minutes wall-clock time
+- Training budget: exactly 30 minutes wall-clock time
 - VRAM is the binding constraint — do not increase model size, depth, or sequence length
 
 ## Hard Constraints (do not change these)
@@ -21,7 +21,7 @@
 
 ## What to Try
 
-Everything here targets improving sample efficiency in the 5-minute window:
+Everything here targets improving sample efficiency in the 30-minute window:
 
 1. **Optimizer** — peak learning rate, warmup steps, decay shape, betas, epsilon, weight decay
 2. **Regularization** — dropout rates, gradient clipping threshold

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-ollama_agent.py — Drop-in replacement for Claude Code in Karpathy's autoresearch.
+ollama_agent.py — Drop-in replacement for Claude Code in Karpathy's autoresearcher.
 Uses a local Ollama model to autonomously iterate on train.py overnight.
 
 Usage:
@@ -35,7 +35,7 @@ BACKUP_FILE      = Path("train.py.best")
 BASELINE_FILE    = Path("train.py.baseline")
 LOG_FILE         = Path("agent_log.jsonl")
 OLLAMA_URL       = "http://localhost:11434"
-TRAIN_TIMEOUT    = 660    # 11 min hard timeout (5 min budget + startup overhead)
+TRAIN_TIMEOUT    = 2100   # 35 min hard timeout (30 min budget + startup overhead)
 
 # -- Logging ------------------------------------------------------------------
 
