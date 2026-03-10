@@ -1,0 +1,32 @@
+[2026-03-11 01:53:44] ========== TRAINING START ==========
+[2026-03-11 01:53:44] Duration: 10h 0m 0s
+[2026-03-11 01:53:44] Dataset: climbmix
+[2026-03-11 01:53:44] Shards: 10
+[2026-03-11 01:53:44] Workers: 39
+[2026-03-11 01:53:44] ====================================
+[2026-03-11 01:53:49] Using 'uv' runner to start training (TIME_BUDGET=36000s)
+
+🔍 Verifying required packages...
+📦 [Fallback] Installing missing dependency: psutil...
+✅ Successfully installed psutil
+Vocab size: 8,192
+🔨 Building model: depth=8, batch_size=96
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 70.7GB | Total: 79.2GB
+✅ Model built successfully with 8 layers
+Post-build | VRAM - Allocated: 0.5GB | Reserved: 0.6GB | Available: 70.1GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 8,388,608
+  value_embeds            : 33,554,432
+  lm_head                 : 8,388,608
+  transformer_matrices    : 100,664,320
+  scalars                 : 16
+  total                   : 150,995,984
+Estimated FLOPs per token: 7.801467e+08
+Gradient accumulation steps: 5 (adjusted batch: 983,040 tokens)
+Scaling AdamW LRs by 1/sqrt(1024/768) = 0.866025
+
+🚀 Starting training with CURRENT_BATCH_SIZE=96, CURRENT_DEPTH=8
+Time budget: 36000s
+Gradient accumulation steps: 5
+step 00000 (0.0%) | loss: 9.011393 | lrm: 1.00 | dt: 22199ms | tok/sec: 44,283 | mfu: 0.7% | epoch: 1 | remaining: 36000s    [2026-03-11 01:54:20] ✓ Training initialization complete, timer started
+step 00001 (0.0%) | loss: 8.755714 | lrm: 1.00 | dt: 7100ms | tok/sec: 138,458 | mfu: 2.2% | epoch: 1 | remaining: 36000s    step 00002 (0.0%) | loss: 8.226683 | lrm: 1.00 | dt: 7228ms | tok/sec: 136,012 | mfu: 2.1% | epoch: 1 | remaining: 36000s    step 00003 (0.0%) | loss: 7.714963 | lrm: 1.00 | dt: 8726ms | tok/sec: 112,659 | mfu: 1.8% | epoch: 1 | remaining: 36000s    step 00004 (0.0%) | loss: 7.295918 | lrm: 1.00 | dt: 9045ms | tok/sec: 108,679 | mfu: 1.7% | epoch: 1 | remaining: 36000s    step 00005 (0.0%) | loss: 6.995202 | lrm: 1.00 | dt: 9241ms | tok/sec: 106,379 | mfu: 1.7% | epoch: 1 | remaining: 36000s    
