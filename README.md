@@ -211,10 +211,10 @@ Expected:
 
 ### Make Script Executable
 ```bash
-chmod +x run_all.sh
+chmod +x autoresearcher
 ```
 
-**That's all!** Ready to run: `./run_all.sh`
+**That's all!** Ready to run: `./autoresearcher`
 
 ---
 
@@ -261,26 +261,26 @@ training_metrics.png           ← Graph showing loss, MFU, throughput
 ### Research Iteration
 ```bash
 # Quick feedback (5 min)
-./run_all.sh --minutes 5
+./autoresearcher --minutes 5
 
 # Modify code
 
 # Longer test (10 min)
-./run_all.sh --minutes 10
+./autoresearcher --minutes 10
 ```
 
 ### Fair Dataset Comparison
 ```bash
 # Test each dataset for same 20 minutes
-./run_all.sh --dataset arxiv --minutes 20
-./run_all.sh --dataset code --minutes 20
-./run_all.sh --dataset wiki --minutes 20
+./autoresearcher --dataset arxiv --minutes 20
+./autoresearcher --dataset code --minutes 20
+./autoresearcher --dataset wiki --minutes 20
 # Compare results
 ```
 
 ### Background Training
 ```bash
-nohup ./run_all.sh --hours 6 > training.log 2>&1 &
+nohup ./autoresearcher --hours 6 > training.log 2>&1 &
 # Check results next morning
 tail training.log
 ```
@@ -288,10 +288,10 @@ tail training.log
 ### CI/CD Testing
 ```bash
 # Smoke test (quick)
-./run_all.sh --minutes 5 --shards 2
+./autoresearcher --minutes 5 --shards 2
 
 # Full test
-./run_all.sh --minutes 30 --shards 10
+./autoresearcher --minutes 30 --shards 10
 ```
 
 ---
@@ -302,7 +302,7 @@ tail training.log
 
 ```bash
 # Terminal 1: Run training
-./run_all.sh --hours 2
+./autoresearcher --hours 2
 
 # Terminal 2: Watch GPU
 watch -n 1 nvidia-smi
@@ -336,7 +336,7 @@ pyenv local 3.12.0
 df -h ~/.cache/autoresearch/
 
 # Use fewer workers (if needed)
-./run_all.sh --workers 20
+./autoresearcher --workers 20
 ```
 
 ### "matplotlib not found" (for graph)
@@ -351,7 +351,7 @@ pip install matplotlib
 ollama serve
 
 # Then try again
-./run_all.sh --deepseek
+./autoresearcher --deepseek
 ```
 
 ---
@@ -365,10 +365,12 @@ autoresearcher/
 ├──  prepare.py                  ← Data download/preprocessing
 ├──  setup_a100.py               ← Hardware verification
 ├──  ollama_deepseek.py          ← DeepSeek integration (optional)
+├──  analysis.ipynb              ← Jupyter notebook for analysis
 ├──  pyproject.toml              ← Dependencies (Python 3.12+)
 ├──  README.md                   ← This file
+├──  program.md                  ← Program documentation
 │
-├──  assets/                     ←  GRAPH EXPORTS GO HERE
+├──  assets/                     ← GRAPH EXPORTS GO HERE
 │   ├── README.md                  ← Graph documentation
 │   ├── training_metrics_latest.png        ← Latest run's graph
 │   ├── training_metrics_20260311_*.png    ← Historical archives
@@ -383,7 +385,8 @@ autoresearcher/
     ├── .python-version
     ├── .venv/                     ← Virtual environment
     ├── uv.lock                    ← Lock file
-    └── ...
+    ├── __pycache__/
+    └── .git/
 ```
 
 ###  Most Important: `assets/` Folder
@@ -443,7 +446,7 @@ open assets/training_metrics_latest.png
 
 ### How It Works
 
-1. You specify duration: `./run_all.sh --minutes 30`
+1. You specify duration: `./autoresearcher --minutes 30`
 2. Training starts in background
 3. Script monitors elapsed time every second
 4. At exactly 30 minutes, training stops
@@ -464,15 +467,15 @@ open assets/training_metrics_latest.png
 
 ### Schedule Multiple Runs
 ```bash
-./run_all.sh --dataset arxiv --minutes 20 && \
-./run_all.sh --dataset code --minutes 20 && \
-./run_all.sh --dataset wiki --minutes 20
+./autoresearcher --dataset arxiv --minutes 20 && \
+./autoresearcher --dataset code --minutes 20 && \
+./autoresearcher --dataset wiki --minutes 20
 ```
 
 ### Background with Nohup
 ```bash
-nohup ./run_all.sh --hours 6 > bg_training.log 2>&1 &
-ps aux | grep run_all.sh  # Check status
+nohup ./autoresearcher --hours 6 > bg_training.log 2>&1 &
+ps aux | grep autoresearcher  # Check status
 ```
 
 ### Monitor GPU in Real-Time
@@ -515,7 +518,7 @@ tail -5 training_*.log | grep -E "(val_bpb|loss)"
 ## ❓ FAQ
 
 **Q: How do I use this?**  
-A: `./run_all.sh` - then answer the prompts!
+A: `./autoresearcher` - then answer the prompts!
 
 **Q: How long does training take?**  
 A: You choose! 5 min, 30 min, 2 hours, 24 hours - whatever you want.
@@ -540,7 +543,7 @@ A: Yes! Each run gets a new timestamped log file.
 ##  Ready?
 
 ```bash
-./run_all.sh
+./autoresearcher
 ```
 
 Answer a few questions → training runs → results saved → graph generated! ✨
