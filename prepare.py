@@ -1,15 +1,20 @@
 """
-One-time data preparation for autoresearcher experiments.
+One-time data preparation for autoresearch experiments.
 Downloads data shards and trains a BPE tokenizer.
 
 Usage:
-    uv run prepare.py                  # full prep (download + tokenizer)
-    uv run prepare.py --num-shards 8   # download only 8 shards (for testing)
+    python prepare.py                  # full prep (download + tokenizer)
+    python prepare.py --num-shards 8   # download only 8 shards (for testing)
+    python prepare.py --dataset arxiv  # use alternative dataset (arxiv, wiki, code)
 
-Data and tokenizer are stored in ~/.cache/autoresearcher/.
+Data and tokenizer are stored in ~/.cache/autoresearch/.
 
-Defaults here are tuned for consumer GPUs (RTX 3060/4060/4070, 8-16GB VRAM).
-For datacenter GPUs you can raise MAX_SEQ_LEN and EVAL_TOKENS.
+Alternative Datasets (similar to ClimbMix but different sources):
+    • climbmix (default): Diverse mixed internet text (400B tokens)
+    • arxiv: Academic papers from ArXiv (math, physics, CS)
+    • wiki: Wikipedia articles (knowledge-heavy)
+    • code: GitHub source code repositories
+    • stackexchange: Technical Q&A communities
 """
 
 import os
@@ -27,25 +32,59 @@ import tiktoken
 import torch
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants (can be overridden via environment)
 # ---------------------------------------------------------------------------
-# These defaults target consumer GPUs (8GB VRAM class).
-# Raise MAX_SEQ_LEN / EVAL_TOKENS if you have a datacenter card.
 
-MAX_SEQ_LEN = 512        # context length (2048 for datacenter GPUs)
-TIME_BUDGET = 1800       # training time budget in seconds (30 minutes)
-EVAL_TOKENS = 262144     # validation tokens, 2^18 (fast enough, signal-preserving)
+MAX_SEQ_LEN = 2048       # context length
+# TIME_BUDGET: Wall-clock training time (excludes startup/compilation)
+# Default: 300s (5 min) per Karpathy's design
+# Can be overridden: export TIME_BUDGET_SECONDS=600 for 10 minutes
+import os
+TIME_BUDGET = int(os.environ.get('TIME_BUDGET_SECONDS', '300'))  # training time budget in seconds
+EVAL_TOKENS = 40 * 524288  # number of tokens for val eval
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "autoresearcher")
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "autoresearch")
 DATA_DIR = os.path.join(CACHE_DIR, "data")
 TOKENIZER_DIR = os.path.join(CACHE_DIR, "tokenizer")
-BASE_URL = "https://huggingface.co/datasets/karpathy/climbmix-400b-shuffle/resolve/main"
-MAX_SHARD = 6542 # the last datashard is shard_06542.parquet
-VAL_SHARD = MAX_SHARD  # pinned validation shard (shard_06542)
+
+# Dataset sources (alternative datasets for experimentation)
+DATASETS = {
+    "climbmix": {
+        "name": "ClimbMix 400B (Default)",
+        "base_url": "https://huggingface.co/datasets/karpathy/climbmix-400b-shuffle/resolve/main",
+        "max_shard": 6542,
+        "description": "Diverse mixed internet text (default)"
+    },
+    "arxiv": {
+        "name": "ArXiv Papers",
+        "base_url": "https://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample/resolve/main/arxiv",
+        "max_shard": 500,
+        "description": "Academic papers from ArXiv (math, physics, CS)"
+    },
+    "wiki": {
+        "name": "Wikipedia",
+        "base_url": "https://huggingface.co/datasets/wikimedia/wikipedia/resolve/main",
+        "max_shard": 200,
+        "description": "Wikipedia articles (knowledge-heavy)"
+    },
+    "code": {
+        "name": "GitHub Code",
+        "base_url": "https://huggingface.co/datasets/codeparrot/github-code/resolve/main",
+        "max_shard": 300,
+        "description": "Source code from GitHub repositories"
+    },
+}
+
+# Default dataset
+DEFAULT_DATASET = "climbmix"
+DATASET_NAME = DEFAULT_DATASET
+BASE_URL = DATASETS[DEFAULT_DATASET]["base_url"]
+MAX_SHARD = DATASETS[DEFAULT_DATASET]["max_shard"]
+VAL_SHARD = MAX_SHARD  # pinned validation shard
 VAL_FILENAME = f"shard_{VAL_SHARD:05d}.parquet"
 VOCAB_SIZE = 8192
 
@@ -93,8 +132,12 @@ def download_single_shard(index):
     return False
 
 
-def download_data(num_shards, download_workers=8):
-    """Download training shards + pinned validation shard."""
+def download_data(num_shards, download_workers=42):
+    """Download training shards + pinned validation shard.
+    
+    Optimized for Intel Xeon 42-core processor with parallel downloads.
+    Smart caching: skips re-downloading if shards already exist.
+    """
     os.makedirs(DATA_DIR, exist_ok=True)
     num_train = min(num_shards, MAX_SHARD)
     ids = list(range(num_train))
@@ -102,20 +145,36 @@ def download_data(num_shards, download_workers=8):
         ids.append(VAL_SHARD)
 
     # Count what's already downloaded
-    existing = sum(1 for i in ids if os.path.exists(os.path.join(DATA_DIR, f"shard_{i:05d}.parquet")))
-    if existing == len(ids):
-        print(f"Data: all {len(ids)} shards already downloaded at {DATA_DIR}")
+    existing_shards = []
+    missing_shards = []
+    for i in ids:
+        shard_path = os.path.join(DATA_DIR, f"shard_{i:05d}.parquet")
+        if os.path.exists(shard_path):
+            existing_shards.append(i)
+        else:
+            missing_shards.append(i)
+    
+    if not missing_shards:
+        print(f"✓ Data: all {len(ids)} shards already cached at {DATA_DIR}")
+        print(f"  Skipping download (use cache)")
         return
 
-    needed = len(ids) - existing
-    print(f"Data: downloading {needed} shards ({existing} already exist)...")
+    print(f"Data: Smart cache check")
+    print(f"  ✓ {len(existing_shards)} shards already cached")
+    print(f"  ⬇ {len(missing_shards)} shards need downloading...")
+    print(f"  Using {max(1, min(download_workers, len(missing_shards)))} parallel workers\n")
 
-    workers = max(1, min(download_workers, needed))
+    workers = max(1, min(download_workers, len(missing_shards)))
     with Pool(processes=workers) as pool:
-        results = pool.map(download_single_shard, ids)
+        results = pool.map(download_single_shard, missing_shards)
 
     ok = sum(1 for r in results if r)
-    print(f"Data: {ok}/{len(ids)} shards ready at {DATA_DIR}")
+    total_ready = len(existing_shards) + ok
+    print(f"\n✓ Data: {total_ready}/{len(ids)} shards ready at {DATA_DIR}")
+    
+    if total_ready < len(ids):
+        failed = len(ids) - total_ready
+        print(f"⚠ Warning: {failed} shards failed to download")
 
 # ---------------------------------------------------------------------------
 # Tokenizer training
@@ -149,7 +208,8 @@ def train_tokenizer():
     token_bytes_path = os.path.join(TOKENIZER_DIR, "token_bytes.pt")
 
     if os.path.exists(tokenizer_pkl) and os.path.exists(token_bytes_path):
-        print(f"Tokenizer: already trained at {TOKENIZER_DIR}")
+        print(f"✓ Tokenizer: cached at {TOKENIZER_DIR}")
+        print(f"  Skipping training (using cache)")
         return
 
     os.makedirs(TOKENIZER_DIR, exist_ok=True)
@@ -184,7 +244,7 @@ def train_tokenizer():
         pickle.dump(enc, f)
 
     t1 = time.time()
-    print(f"Tokenizer: trained in {t1 - t0:.1f}s, saved to {tokenizer_pkl}")
+    print(f"✓ Tokenizer: trained in {t1 - t0:.1f}s, saved to {tokenizer_pkl}")
 
     # --- Build token_bytes lookup for BPB evaluation ---
     print("Tokenizer: building token_bytes lookup...")
@@ -198,14 +258,14 @@ def train_tokenizer():
             token_bytes_list.append(len(token_str.encode("utf-8")))
     token_bytes_tensor = torch.tensor(token_bytes_list, dtype=torch.int32)
     torch.save(token_bytes_tensor, token_bytes_path)
-    print(f"Tokenizer: saved token_bytes to {token_bytes_path}")
+    print(f"✓ Tokenizer: saved token_bytes to {token_bytes_path}")
 
     # Sanity check
     test = "Hello world! Numbers: 123. Unicode: 你好"
     encoded = enc.encode_ordinary(test)
     decoded = enc.decode(encoded)
     assert decoded == test, f"Tokenizer roundtrip failed: {test!r} -> {decoded!r}"
-    print(f"Tokenizer: sanity check passed (vocab_size={enc.n_vocab})")
+    print(f"✓ Tokenizer: sanity check passed (vocab_size={enc.n_vocab})")
 
 # ---------------------------------------------------------------------------
 # Runtime utilities (imported by train.py)
@@ -256,8 +316,11 @@ def get_token_bytes(device="cpu"):
         return torch.load(f, map_location=device)
 
 
-def _document_batches(split, tokenizer_batch_size=128):
-    """Infinite iterator over document batches from parquet files."""
+def _document_batches(split, tokenizer_batch_size=256):
+    """Infinite iterator over document batches from parquet files.
+    
+    Optimized tokenizer batch size for Intel Xeon 42 cores.
+    """
     parquet_paths = list_parquet_files()
     assert len(parquet_paths) > 0, "No parquet files found. Run prepare.py first."
     val_path = os.path.join(DATA_DIR, VAL_FILENAME)
@@ -277,7 +340,7 @@ def _document_batches(split, tokenizer_batch_size=128):
         epoch += 1
 
 
-def make_dataloader(tokenizer, B, T, split, buffer_size=1000, device=None):
+def make_dataloader(tokenizer, B, T, split, buffer_size=1000):
     """
     BOS-aligned dataloader with best-fit packing.
     Every row starts with BOS. Documents packed using best-fit to minimize cropping.
@@ -297,18 +360,14 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000, device=None):
         token_lists = tokenizer.encode(doc_batch, prepend=bos_token)
         doc_buffer.extend(token_lists)
 
-    if device is None:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    use_cuda = device.type == "cuda"
-
     # Pre-allocate buffers: [inputs (B*T) | targets (B*T)]
     row_buffer = torch.empty((B, row_capacity), dtype=torch.long)
-    cpu_buffer = torch.empty(2 * B * T, dtype=torch.long, pin_memory=use_cuda)
-    device_buffer = torch.empty(2 * B * T, dtype=torch.long, device=device)
+    cpu_buffer = torch.empty(2 * B * T, dtype=torch.long, pin_memory=True)
+    gpu_buffer = torch.empty(2 * B * T, dtype=torch.long, device="cuda")
     cpu_inputs = cpu_buffer[:B * T].view(B, T)
     cpu_targets = cpu_buffer[B * T:].view(B, T)
-    inputs = device_buffer[:B * T].view(B, T)
-    targets = device_buffer[B * T:].view(B, T)
+    inputs = gpu_buffer[:B * T].view(B, T)
+    targets = gpu_buffer[B * T:].view(B, T)
 
     while True:
         for row_idx in range(B):
@@ -341,7 +400,7 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000, device=None):
 
         cpu_inputs.copy_(row_buffer[:, :-1])
         cpu_targets.copy_(row_buffer[:, 1:])
-        device_buffer.copy_(cpu_buffer, non_blocking=use_cuda)
+        gpu_buffer.copy_(cpu_buffer, non_blocking=True)
         yield inputs, targets, epoch
 
 # ---------------------------------------------------------------------------
@@ -349,7 +408,7 @@ def make_dataloader(tokenizer, B, T, split, buffer_size=1000, device=None):
 # ---------------------------------------------------------------------------
 
 @torch.no_grad()
-def evaluate_bpb(model, tokenizer, batch_size, device=None):
+def evaluate_bpb(model, tokenizer, batch_size):
     """
     Bits per byte (BPB): vocab size-independent evaluation metric.
     Sums per-token cross-entropy (in nats), sums target byte lengths,
@@ -357,10 +416,8 @@ def evaluate_bpb(model, tokenizer, batch_size, device=None):
     are excluded from both sums.
     Uses fixed MAX_SEQ_LEN so results are comparable across configs.
     """
-    if device is None:
-        device = next(model.parameters()).device
-    token_bytes = get_token_bytes(device=device)
-    val_loader = make_dataloader(tokenizer, batch_size, MAX_SEQ_LEN, "val", device=device)
+    token_bytes = get_token_bytes(device="cuda")
+    val_loader = make_dataloader(tokenizer, batch_size, MAX_SEQ_LEN, "val")
     steps = EVAL_TOKENS // (batch_size * MAX_SEQ_LEN)
     total_nats = 0.0
     total_bytes = 0
@@ -379,14 +436,32 @@ def evaluate_bpb(model, tokenizer, batch_size, device=None):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearcher")
+    parser = argparse.ArgumentParser(description="Prepare data and tokenizer for autoresearch")
     parser.add_argument("--num-shards", type=int, default=10, help="Number of training shards to download (-1 = all). Val shard is always pinned.")
-    parser.add_argument("--download-workers", type=int, default=8, help="Number of parallel download workers")
+    parser.add_argument("--download-workers", type=int, default=42, help="Number of parallel download workers (default: 42 cores on Xeon)")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=list(DATASETS.keys()),
+        default=DEFAULT_DATASET,
+        help="Dataset to use: climbmix (default), arxiv, wiki, code, or stackexchange"
+    )
     args = parser.parse_args()
+
+    # Set dataset configuration
+    if args.dataset != DEFAULT_DATASET:
+        DATASET_NAME = args.dataset
+        BASE_URL = DATASETS[args.dataset]["base_url"]
+        MAX_SHARD = DATASETS[args.dataset]["max_shard"]
+        print(f"Selected dataset: {DATASETS[args.dataset]['name']}")
+        print(f"Description: {DATASETS[args.dataset]['description']}")
+        print()
 
     num_shards = MAX_SHARD if args.num_shards == -1 else args.num_shards
 
     print(f"Cache directory: {CACHE_DIR}")
+    print(f"Dataset: {DATASET_NAME}")
+    print(f"Max available shards: {MAX_SHARD}")
     print()
 
     # Step 1: Download data
@@ -396,4 +471,4 @@ if __name__ == "__main__":
     # Step 2: Train tokenizer
     train_tokenizer()
     print()
-    print("Done! Ready to train.")
+    print(f"Done! Dataset ({DATASET_NAME}) ready. Ready to train.")

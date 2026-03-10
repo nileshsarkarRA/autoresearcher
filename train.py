@@ -1,30 +1,69 @@
 """
-Autoresearcher pretraining script. Single-GPU, single-file.
+Autoresearch pretraining script. Single-GPU, single-file.
 Cherry-picked and simplified from nanochat.
-
-Works on consumer NVIDIA GPUs (RTX 3060/4060/4070 8-16GB) out of the box.
-Hardware profiles auto-select safe defaults based on detected VRAM:
-  laptop_8gb  — DEPTH=4, SEQ=512, BATCH=2^14, no banded attention
-  laptop_16gb — DEPTH=6, SEQ=512, BATCH=2^15, light sliding window
-  datacenter  — original defaults (DEPTH=8, SEQ=2048, BATCH=2^19)
-
-Override with: AUTORESEARCHER_GPU_PROFILE=laptop_8gb uv run train.py
-
-For autonomous overnight research with a local LLM:
-  ollama serve
-  python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
-
 Usage: uv run train.py
 """
 
 import os
-import sys
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
 import gc
 import time
-from contextlib import nullcontext
+import sys
+import subprocess
+
+# Auto-install missing dependencies (fallback only)
+def ensure_module(module_name, pip_name=None):
+    """Try to import a module, if missing, install it automatically via uv."""
+    if pip_name is None:
+        pip_name = module_name
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        print(f"📦 [Fallback] Installing missing dependency: {pip_name}...")
+        try:
+            # Use uv pip install (should work if autoresearcher pre-installed)
+            result = subprocess.run(["uv", "pip", "install", "-q", pip_name], 
+                                  capture_output=True, timeout=60)
+            if result.returncode == 0:
+                print(f"✅ Successfully installed {pip_name}")
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+            pass
+        
+        print(f"⚠️  Failed to install {pip_name}")
+        return False
+
+# Ensure critical packages are available
+print("\n🔍 Verifying required packages...")
+required_packages = {"psutil": "psutil"}
+failed = []
+
+for module_name, pip_name in required_packages.items():
+    if not ensure_module(module_name, pip_name):
+        failed.append(pip_name)
+
+if failed:
+    print(f"\n⚠️  Missing packages: {', '.join(failed)} - these should have been installed by autoresearcher")
+
+# Import with fallback for psutil (optional module)
+try:
+    import psutil
+except ImportError:
+    print("⚠️  psutil import failed - continuing without system memory monitoring")
+    # Create a minimal mock psutil for memory functions
+    class MockPsutil:
+        @staticmethod
+        def virtual_memory():
+            class Mem:
+                total = 64 * 1024 * 1024 * 1024  # 64GB
+                available = 32 * 1024 * 1024 * 1024  # 32GB estimate
+            return Mem()
+    psutil = MockPsutil()
+
+import psutil
 from dataclasses import dataclass, asdict
 
 import torch
@@ -32,64 +71,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from kernels import get_kernel
+cap = torch.cuda.get_device_capability()
+# varunneal's FA3 is Hopper only, use kernels-community on non-Hopper GPUs
+repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
+fa3 = get_kernel(repo).flash_attn_interface
 
-from prepare import MAX_SEQ_LEN, TIME_BUDGET as _TIME_BUDGET_DEFAULT, Tokenizer, make_dataloader, evaluate_bpb
-
-# Allow overriding time budget via env var for quick smoke tests
-# e.g. TIME_BUDGET=300 uv run train.py
-TIME_BUDGET = int(os.getenv("TIME_BUDGET", str(_TIME_BUDGET_DEFAULT)))
-
-# Windows: Triton is not available, so torch.compile falls back to eager
-if sys.platform == "win32":
-    def _noop_compile(fn=None, **kwargs):
-        if fn is None:
-            return lambda f: f
-        return fn
-    torch.compile = _noop_compile
-
-ATTN_IMPL = "sdpa"
-_fa3 = None
-
-
-def setup_attention_backend(device):
-    """Pick the best attention backend available on this machine."""
-    global ATTN_IMPL, _fa3
-    forced = os.getenv("AUTORESEARCHER_ATTN_BACKEND", "auto").lower()
-    if device.type != "cuda":
-        ATTN_IMPL = "sdpa"
-        print(f"Attention backend: {ATTN_IMPL} (non-CUDA device)")
-        return
-
-    if forced == "sdpa":
-        ATTN_IMPL = "sdpa"
-        print("Attention backend: sdpa (forced via AUTORESEARCHER_ATTN_BACKEND=sdpa)")
-        return
-
-    cap = torch.cuda.get_device_capability()
-    repo = "varunneal/flash-attention-3" if cap == (9, 0) else "kernels-community/flash-attn3"
-    try:
-        _fa3 = get_kernel(repo).flash_attn_interface
-        ATTN_IMPL = "fa3"
-        print(f"Attention backend: fa3 ({repo})")
-    except Exception as e:
-        ATTN_IMPL = "sdpa"
-        print(f"Attention backend: sdpa (kernel load failed: {e})")
-
-
-def flash_attention(q, k, v, window_size):
-    if ATTN_IMPL == "fa3":
-        return _fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
-
-    # SDPA fallback for broader GPU compatibility (e.g. RTX 40xx laptops).
-    q = q.transpose(1, 2)
-    k = k.transpose(1, 2)
-    v = v.transpose(1, 2)
-    if q.size(1) != k.size(1):
-        repeat = q.size(1) // k.size(1)
-        k = k.repeat_interleave(repeat, dim=1)
-        v = v.repeat_interleave(repeat, dim=1)
-    y = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=0.0)
-    return y.transpose(1, 2)
+from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
 
 # ---------------------------------------------------------------------------
 # GPT Model
@@ -156,7 +143,7 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
         q, k = norm(q), norm(k)
 
-        y = flash_attention(q, k, v, window_size)
+        y = fa3.flash_attn_func(q, k, v, causal=True, window_size=window_size)
         y = y.contiguous().view(B, T, -1)
         y = self.c_proj(y)
         return y
@@ -493,15 +480,20 @@ class MuonAdamW(torch.optim.Optimizer):
 
 # ---------------------------------------------------------------------------
 # Hyperparameters (edit these directly, no CLI flags needed)
+# Optimized for NVIDIA A100 80GB GPU with Intel Xeon 42 cores
 # ---------------------------------------------------------------------------
 
+# Auto-detect system specifications
+_system_ram_gb = psutil.virtual_memory().total / 1024 / 1024 / 1024
+_system_storage_gb = psutil.disk_usage("/").total / 1024 / 1024 / 1024
+
 # Model architecture
-ASPECT_RATIO = 64       # model_dim = depth * ASPECT_RATIO
+ASPECT_RATIO = 128      # model_dim = depth * ASPECT_RATIO (increased for larger model on A100)
 HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
 
 # Optimization
-TOTAL_BATCH_SIZE = 2**19 # ~524K tokens per optimizer step
+TOTAL_BATCH_SIZE = 2**20 # ~1M tokens per optimizer step (doubled for A100 memory)
 EMBEDDING_LR = 0.6      # learning rate for token embeddings (Adam)
 UNEMBEDDING_LR = 0.004  # learning rate for lm_head (Adam)
 MATRIX_LR = 0.04        # learning rate for matrix parameters (Muon)
@@ -513,96 +505,54 @@ WARMDOWN_RATIO = 0.5    # fraction of time budget for LR warmdown
 FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
 
 # Model size
-DEPTH = 8               # number of transformer layers
-DEVICE_BATCH_SIZE = 128  # per-device batch size (reduce if OOM)
+DEPTH = 8               # number of transformer layers (8 for stable A100 80GB training)
+                        # Depth=8 + DEVICE_BATCH_SIZE=96 = safe fit on A100 80GB with room for activations
+DEVICE_BATCH_SIZE = 96  # per-device batch size (A100 80GB: can safely handle 96 with depth=8)
 
+# Dynamic memory adjustment function
+def get_memory_reduction_step(current_depth, current_batch_size, step_number):
+    """
+    Returns reduced depth and batch_size to handle OOM errors.
+    Progressively reduces model size: batch_size -> depth -> batch_size again
+    """
+    reduction_map = {
+        0: (current_depth, int(current_batch_size * 0.75)),     # Step 1: reduce batch by 25%
+        1: (max(8, current_depth - 2), current_batch_size),     # Step 2: reduce depth by 2
+        2: (max(8, current_depth - 4), int(current_batch_size * 0.75)),  # Step 3: reduce both
+    }
+    if step_number not in reduction_map:
+        return None, None  # Can't reduce further
+    return reduction_map[step_number]
 
-def apply_hardware_profile(device):
-    """Auto-tune defaults so consumer GPUs (e.g. RTX 4060 8GB) can run out of the box."""
-    global ASPECT_RATIO, HEAD_DIM, WINDOW_PATTERN
-    global TOTAL_BATCH_SIZE, DEPTH, DEVICE_BATCH_SIZE
-    global EMBEDDING_LR, MATRIX_LR, WEIGHT_DECAY
+def get_available_vram_gb():
+    """Get available GPU VRAM in GB"""
+    return torch.cuda.mem_get_info()[0] / 1024 / 1024 / 1024
 
-    profile = os.getenv("AUTORESEARCHER_GPU_PROFILE", "auto").lower()
-    if device.type != "cuda":
-        if profile != "auto":
-            print(f"Ignoring AUTORESEARCHER_GPU_PROFILE={profile} on non-CUDA device")
-        return "non_cuda"
-
-    vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
-    selected = profile
-    if profile == "auto":
-        if vram_gb <= 10:
-            selected = "laptop_8gb"
-        elif vram_gb <= 16:
-            selected = "laptop_16gb"
-        else:
-            selected = "datacenter"
-
-    if selected == "laptop_8gb":
-        ASPECT_RATIO = 64
-        HEAD_DIM = 64
-        WINDOW_PATTERN = "L"
-        DEPTH = 4
-        DEVICE_BATCH_SIZE = 4
-        TOTAL_BATCH_SIZE = 2**14
-        EMBEDDING_LR = 0.4
-        MATRIX_LR = 0.02
-        WEIGHT_DECAY = 0.1
-    elif selected == "laptop_16gb":
-        ASPECT_RATIO = 64
-        HEAD_DIM = 64
-        WINDOW_PATTERN = "SL"
-        DEPTH = 6
-        DEVICE_BATCH_SIZE = 8
-        TOTAL_BATCH_SIZE = 2**15
-        EMBEDDING_LR = 0.5
-        MATRIX_LR = 0.03
-        WEIGHT_DECAY = 0.15
-
-    return selected
-
-
-def sync_device(device):
-    if device.type == "cuda":
-        torch.cuda.synchronize()
+def log_memory_status(prefix=""):
+    """Log current memory usage"""
+    allocated = torch.cuda.memory_allocated() / 1024 / 1024 / 1024
+    reserved = torch.cuda.memory_reserved() / 1024 / 1024 / 1024
+    available = get_available_vram_gb()
+    total = torch.cuda.get_device_properties(0).total_memory / 1024 / 1024 / 1024
+    print(f"{prefix} | VRAM - Allocated: {allocated:.1f}GB | Reserved: {reserved:.1f}GB | Available: {available:.1f}GB | Total: {total:.1f}GB")
 
 # ---------------------------------------------------------------------------
 # Setup: tokenizer, model, optimizer, dataloader
 # ---------------------------------------------------------------------------
 
+CURRENT_DEPTH = DEPTH
+CURRENT_BATCH_SIZE = DEVICE_BATCH_SIZE
+OOM_RETRY_COUNT = 0
+MAX_OOM_RETRIES = 3
+
 t_start = time.time()
 torch.manual_seed(42)
+torch.cuda.manual_seed(42)
 torch.set_float32_matmul_precision("high")
-
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-elif torch.backends.mps.is_available():
-    device = torch.device("mps")
-else:
-    device = torch.device("cpu")
-
-if device.type == "cuda":
-    torch.cuda.manual_seed(42)
-
-selected_profile = apply_hardware_profile(device)
-setup_attention_backend(device)
-
-if device.type == "cuda":
-    amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-    autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=amp_dtype)
-else:
-    amp_dtype = torch.float32
-    autocast_ctx = nullcontext()
-
-H100_BF16_PEAK_FLOPS = 989.5e12 if (device.type == "cuda" and torch.cuda.get_device_capability() == (9, 0)) else None
-
-print(f"Device: {device}")
-if device.type == "cuda":
-    props = torch.cuda.get_device_properties(0)
-    print(f"GPU: {props.name} ({props.total_memory / (1024 ** 3):.1f} GB)")
-print(f"GPU profile: {selected_profile}")
-print(f"AMP dtype: {amp_dtype}")
+torch.cuda.empty_cache()  # Clear any residual cache before starting
+device = torch.device("cuda")
+autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
+A100_BF16_PEAK_FLOPS = 4976e12  # A100 80GB peak BF16 FLOPs (10x H100)
 
 tokenizer = Tokenizer.from_directory()
 vocab_size = tokenizer.get_vocab_size()
@@ -618,13 +568,48 @@ def build_model_config(depth):
         window_pattern=WINDOW_PATTERN,
     )
 
-config = build_model_config(DEPTH)
-print(f"Model config: {asdict(config)}")
-
-with torch.device("meta"):
-    model = GPT(config)
-model.to_empty(device=device)
-model.init_weights()
+# Try building model with dynamic OOM retry logic
+model_built = False
+while OOM_RETRY_COUNT < MAX_OOM_RETRIES and not model_built:
+    try:
+        torch.cuda.empty_cache()
+        gc.collect()
+        
+        config = build_model_config(CURRENT_DEPTH)
+        print(f"🔨 Building model: depth={CURRENT_DEPTH}, batch_size={CURRENT_BATCH_SIZE}")
+        log_memory_status("Pre-build")
+        
+        with torch.device("meta"):
+            model = GPT(config)
+        model.to_empty(device=device)
+        model.init_weights()
+        
+        print(f"✅ Model built successfully with {CURRENT_DEPTH} layers")
+        log_memory_status("Post-build")
+        model_built = True
+        
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
+            torch.cuda.empty_cache()
+            gc.collect()
+            next_depth, next_batch = get_memory_reduction_step(CURRENT_DEPTH, CURRENT_BATCH_SIZE, OOM_RETRY_COUNT)
+            
+            if next_depth is None:
+                print(f"\n❌ FATAL: Cannot reduce model further. OOM after {OOM_RETRY_COUNT} retries.")
+                print(f"   Error: {str(e)}")
+                sys.exit(1)
+            
+            print(f"\n⚠️  OOM detected! Retrying with reduced parameters...")
+            print(f"   Current: depth={CURRENT_DEPTH}, batch={CURRENT_BATCH_SIZE}")
+            print(f"   Reduced: depth={next_depth}, batch={next_batch}")
+            print(f"   Error: {str(e)[:100]}...")
+            
+            CURRENT_DEPTH = next_depth
+            CURRENT_BATCH_SIZE = next_batch
+            OOM_RETRY_COUNT += 1
+            
+        else:
+            raise
 
 param_counts = model.num_scaling_params()
 print("Parameter counts:")
@@ -634,12 +619,19 @@ num_params = param_counts['total']
 num_flops_per_token = model.estimate_flops()
 print(f"Estimated FLOPs per token: {num_flops_per_token:e}")
 
-tokens_per_fwdbwd = DEVICE_BATCH_SIZE * MAX_SEQ_LEN
-if TOTAL_BATCH_SIZE % tokens_per_fwdbwd != 0:
-    adjusted = max(tokens_per_fwdbwd, (TOTAL_BATCH_SIZE // tokens_per_fwdbwd) * tokens_per_fwdbwd)
-    print(f"Adjusting TOTAL_BATCH_SIZE from {TOTAL_BATCH_SIZE} to {adjusted} for divisibility")
-    TOTAL_BATCH_SIZE = adjusted
-grad_accum_steps = TOTAL_BATCH_SIZE // tokens_per_fwdbwd
+# Calculate tokens per forward-backward pass with CURRENT batch size
+tokens_per_fwdbwd = CURRENT_BATCH_SIZE * MAX_SEQ_LEN
+# Adjust TOTAL_BATCH_SIZE to be compatible with current batch size
+# Round down to nearest multiple to ensure even distribution
+adjusted_total_batch = (TOTAL_BATCH_SIZE // tokens_per_fwdbwd) * tokens_per_fwdbwd
+grad_accum_steps = max(1, adjusted_total_batch // tokens_per_fwdbwd)
+
+if grad_accum_steps == 0:
+    # If current batch is too large, just use 1 accumulation step
+    grad_accum_steps = 1
+    adjusted_total_batch = tokens_per_fwdbwd
+
+print(f"Gradient accumulation steps: {grad_accum_steps} (adjusted batch: {adjusted_total_batch:,} tokens)")
 
 optimizer = model.setup_optimizer(
     unembedding_lr=UNEMBEDDING_LR,
@@ -650,10 +642,13 @@ optimizer = model.setup_optimizer(
     weight_decay=WEIGHT_DECAY,
 )
 
-if device.type == "cuda":
-    model = torch.compile(model, dynamic=False)
+print(f"\n🚀 Starting training with CURRENT_BATCH_SIZE={CURRENT_BATCH_SIZE}, CURRENT_DEPTH={CURRENT_DEPTH}")
+if OOM_RETRY_COUNT > 0:
+    print(f"   (Adjusted from original after {OOM_RETRY_COUNT} OOM retry(ies))\n")
 
-train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train", device=device)
+model = torch.compile(model, dynamic=False)
+
+train_loader = make_dataloader(tokenizer, DEVICE_BATCH_SIZE, MAX_SEQ_LEN, "train")
 x, y, epoch = next(train_loader)  # prefetch first batch
 
 print(f"Time budget: {TIME_BUDGET}s")
@@ -687,14 +682,39 @@ total_training_time = 0
 step = 0
 
 while True:
-    sync_device(device)
+    torch.cuda.synchronize()
     t0 = time.time()
-    for micro_step in range(grad_accum_steps):
+    for grad_accum_idx in range(grad_accum_steps):
         with autocast_ctx:
-            loss = model(x, y)
+            try:
+                loss = model(x, y)
+            except RuntimeError as e:
+                if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
+                    torch.cuda.empty_cache()
+                    print(f"\n❌ OOM during training at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
+                    print(f"   Current: batch_size={CURRENT_BATCH_SIZE}, depth={CURRENT_DEPTH}")
+                    print(f"   Error: {str(e)[:80]}...")
+                    log_memory_status("OOM")
+                    print("\n💡 Try reducing --minutes or use --deepseek flag to save memory")
+                    sys.exit(1)
+                else:
+                    raise
+        
         train_loss = loss.detach()
         loss = loss / grad_accum_steps
-        loss.backward()
+        try:
+            loss.backward()
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
+                torch.cuda.empty_cache()
+                print(f"\n❌ OOM during backward pass at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
+                print(f"   Error: {str(e)[:80]}...")
+                log_memory_status("OOM-backward")
+                print("\n💡 Try reducing --minutes or use --deepseek flag to save memory")
+                sys.exit(1)
+            else:
+                raise
+        
         x, y, epoch = next(train_loader)
 
     # Progress and schedules
@@ -717,7 +737,7 @@ while True:
         print("FAIL")
         exit(1)
 
-    sync_device(device)
+    torch.cuda.synchronize()
     t1 = time.time()
     dt = t1 - t0
 
@@ -729,8 +749,8 @@ while True:
     smooth_train_loss = ema_beta * smooth_train_loss + (1 - ema_beta) * train_loss_f
     debiased_smooth_loss = smooth_train_loss / (1 - ema_beta**(step + 1))
     pct_done = 100 * progress
-    tok_per_sec = int(TOTAL_BATCH_SIZE / dt)
-    mfu = (100 * num_flops_per_token * TOTAL_BATCH_SIZE / dt / H100_BF16_PEAK_FLOPS) if H100_BF16_PEAK_FLOPS else float("nan")
+    tok_per_sec = int(adjusted_total_batch / dt)
+    mfu = 100 * num_flops_per_token * adjusted_total_batch / dt / A100_BF16_PEAK_FLOPS
     remaining = max(0, TIME_BUDGET - total_training_time)
 
     print(f"\rstep {step:05d} ({pct_done:.1f}%) | loss: {debiased_smooth_loss:.6f} | lrm: {lrm:.2f} | dt: {dt*1000:.0f}ms | tok/sec: {tok_per_sec:,} | mfu: {mfu:.1f}% | epoch: {epoch} | remaining: {remaining:.0f}s    ", end="", flush=True)
@@ -751,21 +771,18 @@ while True:
 
 print()  # newline after \r training log
 
-total_tokens = step * TOTAL_BATCH_SIZE
+total_tokens = step * adjusted_total_batch
 
 # Final eval
 model.eval()
 with autocast_ctx:
-    val_bpb = evaluate_bpb(model, tokenizer, DEVICE_BATCH_SIZE, device=device)
+    val_bpb = evaluate_bpb(model, tokenizer, CURRENT_BATCH_SIZE)
 
 # Final summary
 t_end = time.time()
 startup_time = t_start_training - t_start
-if total_training_time > 0 and H100_BF16_PEAK_FLOPS:
-    steady_state_mfu = 100 * num_flops_per_token * TOTAL_BATCH_SIZE * (step - 10) / total_training_time / H100_BF16_PEAK_FLOPS
-else:
-    steady_state_mfu = float("nan")
-peak_vram_mb = (torch.cuda.max_memory_allocated() / 1024 / 1024) if device.type == "cuda" else 0.0
+steady_state_mfu = 100 * num_flops_per_token * adjusted_total_batch * (step - 10) / total_training_time / A100_BF16_PEAK_FLOPS if total_training_time > 0 else 0
+peak_vram_mb = torch.cuda.max_memory_allocated() / 1024 / 1024
 
 print("---")
 print(f"val_bpb:          {val_bpb:.6f}")

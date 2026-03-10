@@ -1,0 +1,42 @@
+[2026-03-11 01:18:59] ========== TRAINING START ==========
+[2026-03-11 01:18:59] Duration: 5m 0s
+[2026-03-11 01:18:59] Dataset: climbmix
+[2026-03-11 01:18:59] Shards: 10
+[2026-03-11 01:18:59] Workers: 39
+[2026-03-11 01:18:59] ====================================
+[2026-03-11 01:19:04] Using 'uv' runner to start training
+
+🔍 Verifying required packages...
+📦 [Fallback] Installing missing dependency: psutil...
+✅ Successfully installed psutil
+Vocab size: 8,192
+🔨 Building model: depth=12, batch_size=192
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 70.7GB | Total: 79.2GB
+✅ Model built successfully with 12 layers
+Post-build | VRAM - Allocated: 1.5GB | Reserved: 1.8GB | Available: 68.9GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 12,582,912
+  value_embeds            : 75,497,472
+  lm_head                 : 12,582,912
+  transformer_matrices    : 339,740,928
+  scalars                 : 24
+  total                   : 440,404,248
+Estimated FLOPs per token: 2.397059e+09
+Gradient accumulation steps: 2 (adjusted batch: 786,432 tokens)
+Scaling AdamW LRs by 1/sqrt(1536/768) = 0.707107
+
+🚀 Starting training with CURRENT_BATCH_SIZE=192, CURRENT_DEPTH=12
+Time budget: 600s
+Gradient accumulation steps: 2
+
+❌ OOM during training at step 0, batch 0/2
+   Current: batch_size=192, depth=12
+   Error: CUDA out of memory. Tried to allocate 1.12 GiB. GPU 0 has a total capacity of 79...
+OOM | VRAM - Allocated: 70.5GB | Reserved: 70.5GB | Available: 0.1GB | Total: 79.2GB
+
+💡 Try reducing --minutes or use --deepseek flag to save memory
+[2026-03-11 01:20:05] ========== TRAINING COMPLETE ==========
+[2026-03-11 01:20:05] Total training time: 1m 6s
+[2026-03-11 01:20:05] ========================================
+[2026-03-11 01:20:05] Generating training metrics graph...
+[2026-03-11 01:20:05] No metrics graph produced (no step/loss lines found in log)

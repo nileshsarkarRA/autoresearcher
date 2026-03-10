@@ -1,0 +1,19 @@
+[2026-03-11 01:14:09] ========== TRAINING START ==========
+[2026-03-11 01:14:09] Duration: 5m 0s
+[2026-03-11 01:14:09] Dataset: climbmix
+[2026-03-11 01:14:09] Shards: 10
+[2026-03-11 01:14:09] Workers: 38
+[2026-03-11 01:14:09] ====================================
+[2026-03-11 01:14:12] Using 'uv' runner to start training
+/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/bin/python3: No module named pip
+📦 Installing missing dependency: psutil...
+⚠️  Failed to install psutil, attempting to continue...
+Traceback (most recent call last):
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/train.py", line 34, in <module>
+    import psutil
+ModuleNotFoundError: No module named 'psutil'
+[2026-03-11 01:15:13] ========== TRAINING COMPLETE ==========
+[2026-03-11 01:15:13] Total training time: 1m 4s
+[2026-03-11 01:15:13] ========================================
+[2026-03-11 01:15:13] Generating training metrics graph...
+[2026-03-11 01:15:14] No metrics graph produced (no step/loss lines found in log)

@@ -1,0 +1,12 @@
+[2026-03-11 00:24:47] ========== TRAINING START ==========
+[2026-03-11 00:24:47] Duration: 5m 0s
+[2026-03-11 00:24:47] Dataset: climbmix
+[2026-03-11 00:24:47] Shards: 10
+[2026-03-11 00:24:47] Workers: 38
+[2026-03-11 00:24:47] ====================================
+./run_all.sh: line 465: uv: command not found
+[2026-03-11 00:24:48] ========== TRAINING COMPLETE ==========
+[2026-03-11 00:24:48] Total training time: 0m 1s
+[2026-03-11 00:24:48] ========================================
+[2026-03-11 00:24:48] Generating training metrics graph...
+[2026-03-11 00:24:53] Training metrics graph generated: training_metrics.png

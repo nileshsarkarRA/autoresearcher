@@ -1,0 +1,30 @@
+[2026-03-11 00:58:48] ========== TRAINING START ==========
+[2026-03-11 00:58:48] Duration: 5m 0s
+[2026-03-11 00:58:48] Dataset: climbmix
+[2026-03-11 00:58:48] Shards: 10
+[2026-03-11 00:58:48] Workers: 38
+[2026-03-11 00:58:48] ====================================
+[2026-03-11 00:58:48] Using 'uv' runner to start training
+Vocab size: 8,192
+🔨 Building model: depth=12, batch_size=192
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 72.4GB | Total: 79.2GB
+✅ Model built successfully with 12 layers
+Post-build | VRAM - Allocated: 1.5GB | Reserved: 1.8GB | Available: 70.6GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 12,582,912
+  value_embeds            : 75,497,472
+  lm_head                 : 12,582,912
+  transformer_matrices    : 339,740,928
+  scalars                 : 24
+  total                   : 440,404,248
+Estimated FLOPs per token: 2.397059e+09
+Traceback (most recent call last):
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/train.py", line 565, in <module>
+    assert TOTAL_BATCH_SIZE % tokens_per_fwdbwd == 0
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+[2026-03-11 00:59:49] ========== TRAINING COMPLETE ==========
+[2026-03-11 00:59:49] Total training time: 1m 1s
+[2026-03-11 00:59:49] ========================================
+[2026-03-11 00:59:50] Generating training metrics graph...
+[2026-03-11 00:59:50] No metrics graph produced (no step/loss lines found in log)

@@ -1,0 +1,109 @@
+[2026-03-11 00:46:51] ========== TRAINING START ==========
+[2026-03-11 00:46:51] Duration: 5m 0s
+[2026-03-11 00:46:51] Dataset: climbmix
+[2026-03-11 00:46:51] Shards: 10
+[2026-03-11 00:46:51] Workers: 38
+[2026-03-11 00:46:51] ====================================
+[2026-03-11 00:46:51] Using 'uv' runner to start training
+Downloading nvidia-nccl-cu12 (307.4MiB)
+Downloading nvidia-cusolver-cu12 (255.1MiB)
+Downloading nvidia-cublas-cu12 (566.8MiB)
+Downloading triton (162.6MiB)
+Downloading nvidia-cudnn-cu12 (674.0MiB)
+Downloading nvidia-cufft-cu12 (184.2MiB)
+Downloading nvidia-cusparselt-cu12 (273.9MiB)
+Downloading nvidia-cusparse-cu12 (274.9MiB)
+Downloading nvidia-nvshmem-cu12 (118.9MiB)
+ Downloaded nvidia-nvshmem-cu12
+ Downloaded triton
+ Downloaded nvidia-cufft-cu12
+ Downloaded nvidia-cusolver-cu12
+ Downloaded nvidia-cusparselt-cu12
+ Downloaded nvidia-cusparse-cu12
+ Downloaded nvidia-nccl-cu12
+ Downloaded nvidia-cublas-cu12
+ Downloaded nvidia-cudnn-cu12
+Installed 64 packages in 1.17s
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Vocab size: 8,192
+Model config: {'sequence_len': 2048, 'vocab_size': 8192, 'n_layer': 16, 'n_head': 16, 'n_kv_head': 16, 'n_embd': 2048, 'window_pattern': 'SSSL'}
+Parameter counts:
+  wte                     : 16,777,216
+  value_embeds            : 134,217,728
+  lm_head                 : 16,777,216
+  transformer_matrices    : 805,310,464
+  scalars                 : 32
+  total                   : 973,082,656
+Estimated FLOPs per token: 5.435843e+09
+Scaling AdamW LRs by 1/sqrt(2048/768) = 0.612372
+Time budget: 600s
+Gradient accumulation steps: 2
+Traceback (most recent call last):
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/train.py", line 548, in <module>
+    loss = model(x, y)
+           ^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 414, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 832, in compile_wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/train.py", line 267, in forward
+    def forward(self, idx, targets=None, reduction='mean'):
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py", line 1044, in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/aot_autograd.py", line 1130, in forward
+    return compiled_fn(full_args)
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 339, in runtime_wrapper
+    all_outs = call_func_at_runtime_with_args(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 129, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 103, in g
+    return f(*args)
+           ^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/autograd/function.py", line 581, in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 2118, in forward
+    fw_outs = call_func_at_runtime_with_args(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/utils.py", line 129, in call_func_at_runtime_with_args
+    out = normalize_as_list(f(args))
+                            ^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 526, in wrapper
+    return compiled_fn(runtime_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_functorch/_aot_autograd/runtime_wrappers.py", line 724, in inner_fn
+    outs = compiled_fn(args)
+           ^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_inductor/output_code.py", line 613, in __call__
+    return self.current_callable(inputs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/.venv/lib/python3.12/site-packages/torch/_inductor/utils.py", line 3017, in run
+    out = model(new_inputs)
+          ^^^^^^^^^^^^^^^^^
+  File "/tmp/torchinductor_garima/jk/cjkicxvlndzbuwbwwyegdxoyv4lsirxqqzsrwibj6syiqnysgjbd.py", line 3205, in call
+    buf73 = empty_strided_cuda((256, 2048, 8192), (16777216, 8192, 1), torch.bfloat16)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 8.00 GiB. GPU 0 has a total capacity of 79.25 GiB of which 501.38 MiB is free. Process 259529 has 422.08 MiB memory in use. Process 681962 has 2.95 GiB memory in use. Process 1616417 has 3.07 GiB memory in use. Including non-PyTorch memory, this process has 72.28 GiB memory in use. Of the allocated memory 71.77 GiB is allocated by PyTorch, and 13.86 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[2026-03-11 00:50:46] ========== TRAINING COMPLETE ==========
+[2026-03-11 00:50:46] Total training time: 3m 55s
+[2026-03-11 00:50:46] ========================================
+[2026-03-11 00:50:46] Generating training metrics graph...
+[2026-03-11 00:50:47] No metrics graph produced (no step/loss lines found in log)

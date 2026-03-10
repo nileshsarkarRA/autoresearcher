@@ -1,0 +1,16 @@
+[2026-03-11 01:03:10] ========== TRAINING START ==========
+[2026-03-11 01:03:10] Duration: 5m 0s
+[2026-03-11 01:03:10] Dataset: climbmix
+[2026-03-11 01:03:10] Shards: 10
+[2026-03-11 01:03:10] Workers: 38
+[2026-03-11 01:03:10] ====================================
+[2026-03-11 01:03:10] Using 'uv' runner to start training
+Traceback (most recent call last):
+  File "/home/garima/NVIDIA_Setup_Testing/autoresearcher/train.py", line 14, in <module>
+    import psutil
+ModuleNotFoundError: No module named 'psutil'
+[2026-03-11 01:04:11] ========== TRAINING COMPLETE ==========
+[2026-03-11 01:04:11] Total training time: 1m 1s
+[2026-03-11 01:04:11] ========================================
+[2026-03-11 01:04:11] Generating training metrics graph...
+[2026-03-11 01:04:12] No metrics graph produced (no step/loss lines found in log)

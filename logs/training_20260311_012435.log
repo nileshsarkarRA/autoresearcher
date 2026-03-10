@@ -1,0 +1,36 @@
+[2026-03-11 01:25:03] ========== TRAINING START ==========
+[2026-03-11 01:25:03] Duration: 5m 0s
+[2026-03-11 01:25:03] Dataset: climbmix
+[2026-03-11 01:25:03] Shards: 10
+[2026-03-11 01:25:03] Workers: 39
+[2026-03-11 01:25:03] ====================================
+[2026-03-11 01:25:08] Using 'uv' runner to start training
+
+🔍 Verifying required packages...
+📦 [Fallback] Installing missing dependency: psutil...
+✅ Successfully installed psutil
+Vocab size: 8,192
+🔨 Building model: depth=8, batch_size=96
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 70.7GB | Total: 79.2GB
+✅ Model built successfully with 8 layers
+Post-build | VRAM - Allocated: 0.5GB | Reserved: 0.6GB | Available: 70.1GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 8,388,608
+  value_embeds            : 33,554,432
+  lm_head                 : 8,388,608
+  transformer_matrices    : 100,664,320
+  scalars                 : 16
+  total                   : 150,995,984
+Estimated FLOPs per token: 7.801467e+08
+Gradient accumulation steps: 5 (adjusted batch: 983,040 tokens)
+Scaling AdamW LRs by 1/sqrt(1024/768) = 0.866025
+
+🚀 Starting training with CURRENT_BATCH_SIZE=96, CURRENT_DEPTH=8
+Time budget: 600s
+Gradient accumulation steps: 5
+step 00000 (0.0%) | loss: 9.011393 | lrm: 1.00 | dt: 56680ms | tok/sec: 17,343 | mfu: 0.3% | epoch: 1 | remaining: 600s    step 00001 (0.0%) | loss: 8.755714 | lrm: 1.00 | dt: 6968ms | tok/sec: 141,071 | mfu: 2.2% | epoch: 1 | remaining: 600s    step 00002 (0.0%) | loss: 8.226685 | lrm: 1.00 | dt: 7082ms | tok/sec: 138,816 | mfu: 2.2% | epoch: 1 | remaining: 600s    step 00003 (0.0%) | loss: 7.714965 | lrm: 1.00 | dt: 7052ms | tok/sec: 139,391 | mfu: 2.2% | epoch: 1 | remaining: 600s    step 00004 (0.0%) | loss: 7.295923 | lrm: 1.00 | dt: 7257ms | tok/sec: 135,454 | mfu: 2.1% | epoch: 1 | remaining: 600s    step 00005 (0.0%) | loss: 6.995207 | lrm: 1.00 | dt: 8281ms | tok/sec: 118,706 | mfu: 1.9% | epoch: 1 | remaining: 600s    step 00006 (0.0%) | loss: 6.758284 | lrm: 1.00 | dt: 9038ms | tok/sec: 108,766 | mfu: 1.7% | epoch: 1 | remaining: 600s    step 00007 (0.0%) | loss: 6.557023 | lrm: 1.00 | dt: 10335ms | tok/sec: 95,116 | mfu: 1.5% | epoch: 1 | remaining: 600s    step 00008 (0.0%) | loss: 6.396195 | lrm: 1.00 | dt: 10649ms | tok/sec: 92,309 | mfu: 1.4% | epoch: 1 | remaining: 600s    step 00009 (0.0%) | loss: 6.259629 | lrm: 1.00 | dt: 9799ms | tok/sec: 100,322 | mfu: 1.6% | epoch: 1 | remaining: 600s    step 00010 (0.0%) | loss: 6.143965 | lrm: 1.00 | dt: 9768ms | tok/sec: 100,638 | mfu: 1.6% | epoch: 1 | remaining: 600s    step 00011 (0.0%) | loss: 6.047821 | lrm: 1.00 | dt: 9815ms | tok/sec: 100,153 | mfu: 1.6% | epoch: 1 | remaining: 590s    step 00012 (1.6%) | loss: 5.961900 | lrm: 1.00 | dt: 10050ms | tok/sec: 97,814 | mfu: 1.5% | epoch: 1 | remaining: 580s    step 00013 (3.3%) | loss: 5.886994 | lrm: 1.00 | dt: 10181ms | tok/sec: 96,560 | mfu: 1.5% | epoch: 1 | remaining: 570s    step 00014 (5.0%) | loss: 5.821800 | lrm: 1.00 | dt: 10215ms | tok/sec: 96,238 | mfu: 1.5% | epoch: 1 | remaining: 560s    step 00015 (6.7%) | loss: 5.767125 | lrm: 1.00 | dt: 10156ms | tok/sec: 96,792 | mfu: 1.5% | epoch: 1 | remaining: 550s    step 00016 (8.4%) | loss: 5.713753 | lrm: 1.00 | dt: 10139ms | tok/sec: 96,954 | mfu: 1.5% | epoch: 1 | remaining: 539s    step 00017 (10.1%) | loss: 5.670607 | lrm: 1.00 | dt: 12585ms | tok/sec: 78,111 | mfu: 1.2% | epoch: 1 | remaining: 527s    step 00018 (12.2%) | loss: 5.625824 | lrm: 1.00 | dt: 10753ms | tok/sec: 91,422 | mfu: 1.4% | epoch: 1 | remaining: 516s    step 00019 (14.0%) | loss: 5.584278 | lrm: 1.00 | dt: 10395ms | tok/sec: 94,564 | mfu: 1.5% | epoch: 1 | remaining: 506s    step 00020 (15.7%) | loss: 5.546626 | lrm: 1.00 | dt: 9935ms | tok/sec: 98,944 | mfu: 1.6% | epoch: 1 | remaining: 496s    step 00021 (17.4%) | loss: 5.510204 | lrm: 1.00 | dt: 11872ms | tok/sec: 82,804 | mfu: 1.3% | epoch: 1 | remaining: 484s    step 00022 (19.3%) | loss: 5.474537 | lrm: 1.00 | dt: 10488ms | tok/sec: 93,732 | mfu: 1.5% | epoch: 1 | remaining: 473s    step 00023 (21.1%) | loss: 5.439064 | lrm: 1.00 | dt: 10410ms | tok/sec: 94,431 | mfu: 1.5% | epoch: 1 | remaining: 463s    [2026-03-11 01:30:03] ⏱ TIME LIMIT REACHED - Stopping training
+[2026-03-11 01:30:08] ========== TRAINING COMPLETE ==========
+[2026-03-11 01:30:08] Total training time: 5m 5s
+[2026-03-11 01:30:08] ========================================
+[2026-03-11 01:30:08] Generating training metrics graph...
+[2026-03-11 01:30:09] No metrics graph produced (no step/loss lines found in log)

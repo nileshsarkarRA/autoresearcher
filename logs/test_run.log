@@ -1,0 +1,22 @@
+[H[2J[3J[0;36m
+╔═══════════════════════════════════════════════════════════════════════╗
+║                                                                       ║
+║          🚀 AutoResearcher - A100 80GB Complete Pipeline 🚀          ║
+║                                                                       ║
+║  Optimized for: NVIDIA A100 80GB | Intel Xeon 42-core | Python 3.12  ║
+║                                                                       ║
+╚═══════════════════════════════════════════════════════════════════════╝
+[0m
+
+
+[0;36m╔═══════════════════════════════════════════════════════════╗[0m
+[0;36m║  📋 Configuration Summary[0m
+[0;36m╚═══════════════════════════════════════════════════════════╝[0m
+
+[1;37mTraining Setup:[0m
+  • Duration: [0;36m5m 0s[0m
+  • Dataset: [0;36mclimbmix[0m
+  • Data Shards: [0;36m2[0m
+  • Workers: [0;36m8[0m
+
+Start training pipeline? (y/n) [default: y]: 
