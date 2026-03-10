@@ -4,7 +4,7 @@
 
 ---
 
-## 🚀 Quick Start - ONE Command!
+## Quick Start - ONE Command!
 
 ```bash
 chmod +x autoresearcher
@@ -12,35 +12,35 @@ chmod +x autoresearcher
 ```
 
 **That's it!** Answer a few questions and training starts with:
-- ✅ Interactive timer (set your duration)
-- ✅ Automatic stop at time limit
-- ✅ Live results in terminal
-- ✅ Proper logging to `logs/` folder
-- ✅ **Metrics graphs saved to `assets/` folder** 📊
+- Interactive timer (set your duration)
+- Automatic stop at time limit
+- Live results in terminal
+- Proper logging to `logs/` folder
+- **Metrics graphs saved to `assets/` folder**
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 autoresearcher/
-├── 🚀 autoresearcher              ← Main script (run this!)
-├── 📚 README.md                    ← This file
-├── 🔧 train.py                     ← Training loop
-├── 📥 prepare.py                   ← Data preparation
-├── assets/                         ← 📊 GRAPH EXPORTS GO HERE
-│   ├── training_metrics_latest.png ← Latest run's graph
-│   ├── training_metrics_20260311_*.png ← Historical graphs
-│   └── README.md                   ← Graph documentation
-├── logs/                           ← Training logs
-│   ├── training_20260311_*.log     ← Timestamped logs
-│   └── ollama.log                  ← DeepSeek logs
+├── autoresearcher              <- Main script (run this!)
+├── README.md                    <- This file
+├── train.py                     <- Training loop
+├── prepare.py                   <- Data preparation
+├── assets/                         <- GRAPH EXPORTS GO HERE
+│   ├── training_metrics_latest.png <- Latest run's graph
+│   ├── training_metrics_20260311_*.png <- Historical graphs
+│   └── README.md                   <- Graph documentation
+├── logs/                           <- Training logs
+│   ├── training_20260311_*.log     <- Timestamped logs
+│   └── ollama.log                  <- DeepSeek logs
 └── ... (other files)
 ```
 
 ---
 
-## 📊 What Happens
+## What Happens
 
 When you run `./autoresearcher`, you'll be asked:
 
@@ -54,7 +54,7 @@ Then the script:
 - **Trains with automatic stop at your time**
 - Shows live progress in terminal
 - Generates complete log file in `logs/`
-- **Creates beautiful metrics graphs in `assets/`** 📊
+- **Creates beautiful metrics graphs in `assets/`**
 
 ### Quick Test (5 minutes)
 ```bash
@@ -98,7 +98,7 @@ Then the script:
 
 ---
 
-## 📊 Output & Results
+## Output & Results
 
 ### Where Do Results Go?
 
@@ -106,12 +106,12 @@ Then the script:
 - Location: `logs/training_YYYYMMDD_HHMMSS.log`
 - Contains: All training steps, loss values, throughput, MFU
 
-**Metrics Graphs (📊 Important!):**
+**Metrics Graphs (Important!):**
 - Location: `assets/training_metrics_latest.png` (always the newest)
 - Also: `assets/training_metrics_YYYYMMDD_HHMMSS.png` (timestamped archives)
 - Shows: Loss curves, MFU, throughput, training summary
 
-### 📊 Example Metrics Graph
+### Example Metrics Graph
 
 ![A100 Training Metrics Example](assets/training_metrics_latest.png)
 
@@ -161,7 +161,7 @@ cat assets/README.md
 
 ---
 
-## 📚 Datasets
+## Datasets
 
 | Dataset | Best For | Content | Size |
 |---------|----------|---------|------|
@@ -182,7 +182,7 @@ cat assets/README.md
 
 ---
 
-## 📋 Setup
+## Setup
 
 ### Prerequisites
 ```bash
@@ -203,11 +203,11 @@ python setup_a100.py
 ```
 
 Expected:
-- ✓ Python 3.12.x
-- ✓ PyTorch 2.9.1
-- ✓ CUDA 12.x
-- ✓ NVIDIA A100 80GB
-- ✓ 42+ CPU cores
+- Python 3.12.x
+- PyTorch 2.9.1
+- CUDA 12.x
+- NVIDIA A100 80GB
+- 42+ CPU cores
 
 ### Make Script Executable
 ```bash
@@ -218,7 +218,7 @@ chmod +x run_all.sh
 
 ---
 
-## 📊 Performance Expectations
+## Performance Expectations
 
 ### A100 80GB Specs
 - GPU: NVIDIA A100 80GB SXM4
@@ -256,7 +256,7 @@ training_metrics.png           ← Graph showing loss, MFU, throughput
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 ### Research Iteration
 ```bash
@@ -296,7 +296,7 @@ tail training.log
 
 ---
 
-## 🛠️ Monitoring While Training
+##  Monitoring While Training
 
 ### In Separate Terminals
 
@@ -360,33 +360,33 @@ ollama serve
 
 ```
 autoresearcher/
-├── 🚀 autoresearcher              ← THE MAIN SCRIPT (run this!)
-├── 🔧 train.py                    ← A100-optimized training
-├── 📥 prepare.py                  ← Data download/preprocessing
-├── 🛠️ setup_a100.py               ← Hardware verification
-├── 🤖 ollama_deepseek.py          ← DeepSeek integration (optional)
-├── 📋 pyproject.toml              ← Dependencies (Python 3.12+)
-├── 📚 README.md                   ← This file
+├──  autoresearcher              ← THE MAIN SCRIPT (run this!)
+├──  train.py                    ← A100-optimized training
+├──  prepare.py                  ← Data download/preprocessing
+├──  setup_a100.py               ← Hardware verification
+├──  ollama_deepseek.py          ← DeepSeek integration (optional)
+├──  pyproject.toml              ← Dependencies (Python 3.12+)
+├──  README.md                   ← This file
 │
-├── 📊 assets/                     ← ⭐ GRAPH EXPORTS GO HERE
+├──  assets/                     ←  GRAPH EXPORTS GO HERE
 │   ├── README.md                  ← Graph documentation
 │   ├── training_metrics_latest.png        ← Latest run's graph
 │   ├── training_metrics_20260311_*.png    ← Historical archives
 │   └── .gitkeep
 │
-├── 📝 logs/                       ← Training logs
+├──  logs/                       ← Training logs
 │   ├── training_20260311_*.log    ← Timestamped training logs
 │   ├── ollama.log                 ← DeepSeek logs
 │   └── STATUS_REPORT.txt
 │
-└── 🔐 (misc files)
+└──  (misc files)
     ├── .python-version
     ├── .venv/                     ← Virtual environment
     ├── uv.lock                    ← Lock file
     └── ...
 ```
 
-### 📊 Most Important: `assets/` Folder
+###  Most Important: `assets/` Folder
 
 After training completes, your **metrics graphs** are automatically saved here:
 - **`training_metrics_latest.png`** - Always points to most recent run
@@ -402,35 +402,35 @@ open assets/training_metrics_latest.png
 
 ## ✨ Key Features
 
-✅ **Interactive Timer**
+ **Interactive Timer**
 - Ask for custom duration
 - Auto-stop at exact time
 - Perfect for scheduling
 
-✅ **Live Terminal Output**
+ **Live Terminal Output**
 - See training in real-time
 - Loss, MFU, throughput updates
 - Progress indicator
 
-✅ **Comprehensive Logging**
+ **Comprehensive Logging**
 - Complete training log saved
 - All metrics recorded
 - Timestamped entries
 
-✅ **Automatic Graphing**
+ **Automatic Graphing**
 - Loss curve
 - MFU % utilization
 - Throughput (M tok/sec)
 - Summary statistics
 
-✅ **Multi-Dataset Support**
+ **Multi-Dataset Support**
 - ClimbMix (default)
 - ArXiv (research)
 - Wikipedia (knowledge)
 - Code (programming)
 - StackExchange (Q&A)
 
-✅ **A100 Optimized**
+ **A100 Optimized**
 - 42 parallel data workers
 - 256 token batch size
 - 16-layer model (100M params)
@@ -502,13 +502,13 @@ tail -5 training_*.log | grep -E "(val_bpb|loss)"
 | Workers | 42 | 8 | 5x |
 
 ### Applied Optimizations
-- ✓ 16 model layers (2x)
-- ✓ 256 token batch (2x)
-- ✓ 1536 embedding dim (2x)
-- ✓ 42 parallel workers
-- ✓ BF16 mixed precision
-- ✓ Flash Attention v3
-- ✓ A100-specific metrics
+-  16 model layers (2x)
+-  256 token batch (2x)
+-  1536 embedding dim (2x)
+-  42 parallel workers
+-  BF16 mixed precision
+-  Flash Attention v3
+-  A100-specific metrics
 
 ---
 
@@ -537,7 +537,7 @@ A: Yes! Each run gets a new timestamped log file.
 
 ---
 
-## 🚀 Ready?
+##  Ready?
 
 ```bash
 ./run_all.sh
