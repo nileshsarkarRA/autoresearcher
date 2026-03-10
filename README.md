@@ -4,13 +4,13 @@
 
 ![Training progress — val_bpb curve over a 5-minute smoke test on RTX 4060 Laptop](assets/train_5min_plot.png)
 
-Neural networks are just matrix multiplications stacked on top of each other, and somehow they work. The research process that discovers better ways to stack them is itself a loop — propose, evaluate, keep or discard. This repo automates that loop.
+*Neural networks are just matrix multiplications stacked on top of each other, and somehow they work. The research process that discovers better ways to stack them is itself a loop — propose, evaluate, keep or discard. This repo automates that loop.*
 
-You don't need a datacenter. You don't need API credits. You need a GPU, a free evening, and the willingness to let a machine run experiments while you sleep.
+*You don't need a datacenter. You don't need API credits. You need a GPU, a free evening, and the willingness to let a machine run experiments while you sleep.*
 
-autoresearcher edits `train.py`, trains for exactly 30 minutes, reads `val_bpb`, keeps what improved, reverts what didn't. Repeat overnight. Wake up to a better model.
+*autoresearcher edits `train.py`, trains for exactly 30 minutes, reads `val_bpb`, keeps what improved, reverts what didn't. Repeat overnight. Wake up to a better model.*
 
-This fork runs the entire loop on a consumer NVIDIA GPU. RTX 3060, 4060, 4070 — laptop or desktop, 8GB VRAM. The research agent is a local Ollama model. No cloud. No fees. Completely offline.
+*This fork runs the entire loop on a consumer NVIDIA GPU. RTX 3060, 4060, 4070 — laptop or desktop, 8GB VRAM. The research agent is a local Ollama model. No cloud. No fees. Completely offline.*
 
 ---
 
@@ -227,14 +227,6 @@ uv run python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experimen
 | `deepseek-coder:6.7b` | ~4.5GB | Excellent |
 | `codellama:7b` | ~4GB | Good |
 | `llama3.2:3b` | ~2GB | OK — use if VRAM is tight |
-
----
-
-## Notable Forks
-
-- https://github.com/miolini/autoresearcher-macos
-- https://github.com/trevin-creator/autoresearcher-mlx
-- https://github.com/jsegov/autoresearcher-win-rtx
 
 ---
 
