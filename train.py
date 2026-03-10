@@ -18,6 +18,7 @@ Usage: uv run train.py
 """
 
 import os
+import sys
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
@@ -32,7 +33,19 @@ import torch.nn.functional as F
 
 from kernels import get_kernel
 
-from prepare import MAX_SEQ_LEN, TIME_BUDGET, Tokenizer, make_dataloader, evaluate_bpb
+from prepare import MAX_SEQ_LEN, TIME_BUDGET as _TIME_BUDGET_DEFAULT, Tokenizer, make_dataloader, evaluate_bpb
+
+# Allow overriding time budget via env var for quick smoke tests
+# e.g. TIME_BUDGET=300 uv run train.py
+TIME_BUDGET = int(os.getenv("TIME_BUDGET", str(_TIME_BUDGET_DEFAULT)))
+
+# Windows: Triton is not available, so torch.compile falls back to eager
+if sys.platform == "win32":
+    def _noop_compile(fn=None, **kwargs):
+        if fn is None:
+            return lambda f: f
+        return fn
+    torch.compile = _noop_compile
 
 ATTN_IMPL = "sdpa"
 _fa3 = None

@@ -6,24 +6,15 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
-.venv
-worktrees/
-results/
-queue/
+# Virtual environment
+.venv/
 
-# Agent prompt files (generated per-session by launchers)
-CLAUDE.md
-AGENTS.md
+# Editor
+.vscode/
 
-# Experimental code/artifacts
-dev/
+# Logs & plots
+*.log
 
-# Results file
-results.tsv
-
-# Ollama agent outputs (auto-managed, do not commit)
-train.py.best
-train.py.baseline
-agent_log.jsonl
-run_*.log
+# Model checkpoints
+*.pt
+*.pkl

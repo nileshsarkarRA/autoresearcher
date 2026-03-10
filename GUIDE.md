@@ -39,8 +39,8 @@ nvidia-smi  # should show your card and CUDA version
 ## Step 1 — Clone and Install
 
 ```bash
-git clone https://github.com/karpathy/autoresearch
-cd autoresearch
+git clone https://github.com/nileshsarkarRA/autoresearcher.git
+cd autoresearcher
 uv sync
 ```
 
@@ -127,19 +127,19 @@ ollama pull llama3.2:3b            # use this if VRAM is too tight
 ollama serve
 
 # Terminal 2
-cd autoresearch
+cd autoresearcher
 
 # Quick test (5 experiments, ~30 min)
-python ollama_agent.py --model qwen2.5-coder:7b --experiments 5
+uv run python ollama_agent.py --model qwen2.5-coder:7b --experiments 5
 
 # Overnight run (50 experiments, ~5-6 hours)
-python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
+uv run python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
 ```
 
 What you'll see:
 
 ```
-[22:01:05] AutoResearch Ollama Agent | model=qwen2.5-coder:7b | experiments=50
+[22:01:05] AutoResearcher Ollama Agent | model=qwen2.5-coder:7b | experiments=50
 [22:01:08] Model 'qwen2.5-coder:7b' is ready.
 [22:01:08] Running baseline experiment to establish starting val_bpb...
 [22:06:12] Training finished in 5.1min -- val_bpb = 1.4823
@@ -202,7 +202,7 @@ Check that `train.py` still has the `val_bpb` logging line. The agent is explici
 
 **Windows-specific issues**
 
-Community fork with Windows fixes: https://github.com/jsegov/autoresearch-win-rtx
+Community fork with Windows fixes: https://github.com/jsegov/autoresearcher-win-rtx
 
 ---
 
@@ -213,8 +213,8 @@ Community fork with Windows fixes: https://github.com/jsegov/autoresearch-win-rt
 ollama serve
 
 # Terminal 2 — log everything
-cd autoresearch
-python ollama_agent.py \
+cd autoresearcher
+uv run python ollama_agent.py \
   --model qwen2.5-coder:7b \
   --experiments 50 \
   2>&1 | tee run_$(date +%Y%m%d).log

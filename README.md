@@ -1,6 +1,8 @@
 # autoresearcher
 
-![teaser](progress.png)
+> **Karpathy's [autoresearcher](https://github.com/karpathy/autoresearcher), reimplemented to run 100% offline on consumer NVIDIA GPUs using local Ollama models.**
+
+![Training progress — val_bpb curve over a 5-minute smoke test on RTX 4060 Laptop](assets/train_5min_plot.png)
 
 Neural networks are just matrix multiplications stacked on top of each other, and somehow they work. The research process that discovers better ways to stack them is itself a loop — propose, evaluate, keep or discard. This repo automates that loop.
 
@@ -9,6 +11,20 @@ You don't need a datacenter. You don't need API credits. You need a GPU, a free 
 autoresearcher edits `train.py`, trains for exactly 30 minutes, reads `val_bpb`, keeps what improved, reverts what didn't. Repeat overnight. Wake up to a better model.
 
 This fork runs the entire loop on a consumer NVIDIA GPU. RTX 3060, 4060, 4070 — laptop or desktop, 8GB VRAM. The research agent is a local Ollama model. No cloud. No fees. Completely offline.
+
+---
+
+## Verified Results
+
+Smoke test on **RTX 4060 Laptop (8GB VRAM)** with `qwen2.5-coder:7b` as the agent:
+
+| Run | Duration | Steps | val_bpb | Throughput | Peak VRAM |
+|---|---|---|---|---|---|
+| Smoke test | 5 min | 1,848 | **1.3511** | ~95K tok/sec | ~512 MB |
+
+![GPU metrics during training on RTX 4060 Laptop](assets/consumergpumetrics.png)
+
+The model converges cleanly. `val_bpb = 1.3511` after just 5 minutes — a full 30-minute overnight run will push this considerably lower.
 
 ---
 
@@ -37,6 +53,8 @@ The original autoresearcher assumed datacenter hardware. On an H100 you have 80G
 
 This fork makes it work anyway. Four changes to the defaults:
 
+![Architecture and configuration overview](assets/progress.png)
+
 - `DEPTH = 4` — cuts parameters by roughly 4x. The model fits in ~3GB with room to breathe.
 - `MAX_SEQ_LEN = 512` — enough context for meaningful language modeling, not enough to OOM.
 - `TOTAL_BATCH_SIZE = 2**14` — ~16K tokens per step, tuned for the 3GB training footprint.
@@ -60,103 +78,78 @@ If you have any modern NVIDIA laptop or desktop GPU, this works. See `GUIDE.md` 
 
 ---
 
-## Setup and Running
+## Quick Start
 
-You need three things installed before anything else: Python 3.10+, Ollama, and uv.
+> Prerequisites: **Python 3.10+**, **NVIDIA GPU with CUDA drivers**.
 
-**Step 1 — Install Ollama**
+---
 
-```bash
-# Linux / WSL
-curl -fsSL https://ollama.com/install.sh | sh
+### Windows (PowerShell)
 
-# Windows (PowerShell, run as Administrator)
-winget install Ollama.Ollama
-
-# macOS
-brew install ollama
-```
-
-After installing, verify it works:
-
-```bash
-ollama --version
-```
-
-**Step 2 — Install uv**
-
-`uv` is a fast Python package manager. It replaces pip/venv for this project.
-
-```bash
-# Linux / macOS / WSL
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows (PowerShell)
+```powershell
+# 1. Install uv (fast Python package manager)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+# Restart PowerShell after this step
 
-Restart your terminal after installing, then verify:
+# 2. Install Ollama
+winget install Ollama.Ollama
+# Or download from https://ollama.com/download/windows
 
-```bash
-uv --version
-```
-
-**Step 3 — Clone and install**
-
-```bash
+# 3. Clone and install dependencies
 git clone https://github.com/nileshsarkarRA/autoresearcher.git
 cd autoresearcher
-
 uv sync
-```
 
-**Step 4 — Download data and train tokenizer (one-time, ~2 min)**
+# 4. Download training data + train tokenizer (one-time, ~2 min)
+uv run python prepare.py
 
-```bash
-uv run prepare.py
-```
-
-This downloads the training corpus and builds a BPE tokenizer. You only do this once.
-
-**Step 5 — Pull the coding model**
-
-```bash
+# 5. Pull the coding model (~4.5 GB)
 ollama pull qwen2.5-coder:7b
-```
 
-~4.5GB download. This is the model that will propose code changes.
-
-**Step 6 — Verify a single training run**
-
-```bash
-# Terminal 1 — start Ollama server (keep this running)
+# 6. Start Ollama — open a NEW PowerShell window and run:
 ollama serve
 
-# Terminal 2 — run one training experiment manually
-uv run train.py
+# 7. Back in the first window — run the agent overnight
+uv run python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
 ```
 
-The run takes about 30 minutes. At the end you should see something like:
+---
 
-```
-val_bpb=1.4823
-```
-
-That number is your baseline. Lower is better. If you see it, everything is working.
-
-**Step 7 — Run the agent overnight**
+### Linux / WSL2
 
 ```bash
-# Terminal 1 — already running ollama serve
+# 1. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc
 
-# Terminal 2
+# 2. Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 3. Clone and install dependencies
+git clone https://github.com/nileshsarkarRA/autoresearcher.git
 cd autoresearcher
-python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
+uv sync
+
+# 4. Download training data + train tokenizer (one-time, ~2 min)
+uv run python prepare.py
+
+# 5. Pull the coding model (~4.5 GB)
+ollama pull qwen2.5-coder:7b
+
+# 6. Start Ollama in one terminal
+ollama serve
+
+# 7. In another terminal — run the agent overnight
+cd autoresearcher
+uv run python ollama_agent.py --model qwen2.5-coder:7b --experiments 50
+
+# Optional: log everything to a file
+uv run python ollama_agent.py --model qwen2.5-coder:7b --experiments 50 2>&1 | tee run_$(date +%Y%m%d).log
 ```
 
-Walk away. Come back in the morning. The agent will run experiments overnight — each one proposing a change, training for 30 minutes, measuring `val_bpb`, and deciding whether to keep or revert.
+---
 
-What you'll see:
+### What it looks like when running
 
 ```
 ============================================================
@@ -173,8 +166,27 @@ What you'll see:
 [22:11:22] IMPROVEMENT. val_bpb=1.4701 (delta=+0.0122) -- keeping change.
 ```
 
-**Step 8 — Check results in the morning**
+Walk away. Come back in the morning.
 
+---
+
+### Check results in the morning
+
+**Windows (PowerShell):**
+```powershell
+Get-Content agent_log.jsonl | python -c "
+import json, sys
+exps = [json.loads(l) for l in sys.stdin]
+kept = [e for e in exps if e.get('kept')]
+print(f'Experiments run:   {len(exps)}')
+print(f'Improvements kept: {len(kept)}')
+if kept:
+    best = min(e['best_bpb'] for e in kept if 'best_bpb' in e)
+    print(f'Best val_bpb:      {best:.4f}')
+"
+```
+
+**Linux / WSL:**
 ```bash
 cat agent_log.jsonl | python -c "
 import json, sys
@@ -188,7 +200,7 @@ if kept:
 "
 ```
 
-The best `train.py` is automatically saved to `train.py.best` and restored at the end of the run. Your original is preserved in `train.py.baseline`.
+The best `train.py` is automatically saved to `train.py.best`. Your original is preserved in `train.py.baseline`.
 
 ---
 
@@ -196,13 +208,13 @@ The best `train.py` is automatically saved to `train.py.best` and restored at th
 
 ```bash
 # Run more experiments for a longer overnight session
-python ollama_agent.py --experiments 100
+uv run python ollama_agent.py --experiments 100
 
 # Use a smaller model if VRAM is tight
-python ollama_agent.py --model llama3.2:3b --experiments 50
+uv run python ollama_agent.py --model llama3.2:3b --experiments 50
 
 # Use a remote Ollama instance
-python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experiments 50
+uv run python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experiments 50
 ```
 
 ---
@@ -220,17 +232,17 @@ python ollama_agent.py --ollama-url http://192.168.1.10:11434 --experiments 50
 
 ## Notable Forks
 
-- https://github.com/miolini/autoresearch-macos
-- https://github.com/trevin-creator/autoresearch-mlx
-- https://github.com/jsegov/autoresearch-win-rtx
+- https://github.com/miolini/autoresearcher-macos
+- https://github.com/trevin-creator/autoresearcher-mlx
+- https://github.com/jsegov/autoresearcher-win-rtx
 
 ---
 
 ## Credits
 
-Big shoutout to **[Andrej Karpathy](https://github.com/karpathy)** — the original `autoresearcher` concept and codebase come from his work. His contributions to open-source AI education (nanoGPT, minGPT, llm.c, makemore, and countless lectures) are what make projects like this possible. Go follow him and check out his repos if you haven't already.
+This project is a consumer-GPU fork of **[Andrej Karpathy's autoresearcher](https://github.com/karpathy/autoresearcher)**. The core concept, training loop, and codebase design all come from his work. His contributions to open-source AI education — nanoGPT, minGPT, llm.c, makemore, and countless lectures — are what make projects like this possible. Go follow him.
 
-This fork adapts his work to run entirely offline on consumer NVIDIA GPUs using local Ollama models.
+This fork replaces the datacenter assumptions with consumer-GPU defaults, and swaps the Claude Code API agent for a local Ollama model. Everything else is faithful to the original.
 
 ---
 
