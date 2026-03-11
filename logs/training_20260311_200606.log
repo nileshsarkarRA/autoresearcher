@@ -6,3 +6,28 @@
 [2026-03-11 20:06:50] Workers: 42
 [2026-03-11 20:06:50] ====================================
 [2026-03-11 20:06:56] Using 'uv' runner to start training (TIME_BUDGET=300s)
+
+[STARTUP] Verifying required packages...
+[Fallback] Installing missing dependency: psutil...
+[SUCCESS] Successfully installed psutil
+[HARDWARE] Profile: A100_HIGH_PERFORMANCE  (depth=8, batch=64, total_tokens=524,288)
+Vocab size: 8,192
+[BUILD] Building model: depth=8, batch_size=64
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 60.4GB | Total: 79.2GB
+[SUCCESS] Model built successfully with 8 layers
+Post-build | VRAM - Allocated: 0.5GB | Reserved: 0.6GB | Available: 59.7GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 8,388,608
+  value_embeds            : 33,554,432
+  lm_head                 : 8,388,608
+  transformer_matrices    : 100,664,320
+  scalars                 : 16
+  total                   : 150,995,984
+Estimated FLOPs per token: 7.801467e+08
+Gradient accumulation steps: 4 (adjusted batch: 524,288 tokens)
+Scaling AdamW LRs by 1/sqrt(1024/768) = 0.866025
+
+[STARTUP] Starting training with CURRENT_BATCH_SIZE=64, CURRENT_DEPTH=8
+Time budget: 310s
+Gradient accumulation steps: 4
+step 00000 (0.0%) | loss: 9.011503 | lrm: 1.00 | dt: 20182ms | tok/sec: 25,977 | mfu: 0.4% | epoch: 1 | remaining: 310s    [2026-03-11 20:07:23] [OK] Training initialization complete, timer started
