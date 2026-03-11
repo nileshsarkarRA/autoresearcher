@@ -12,6 +12,63 @@ from pathlib import Path
 from typing import Tuple, List
 
 
+class HardwareProfile:
+    """Hardware detection and profile management."""
+    
+    @staticmethod
+    def detect_gpu():
+        """Detect GPU and return profile."""
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                return None, "No GPU detected"
+            
+            device_name = torch.cuda.get_device_name(0)
+            total_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            
+            return device_name, total_memory
+        except Exception as e:
+            return None, str(e)
+    
+    @staticmethod
+    def get_profile(device_name, gpu_memory):
+        """Determine hardware profile (A100 or RTX 4060)."""
+        if device_name and "A100" in device_name and gpu_memory >= 70:
+            return "A100_HIGH_PERFORMANCE"
+        elif device_name and ("RTX 4060" in device_name or "RTX4060" in device_name) and gpu_memory <= 8.5:
+            return "RTX4060_LAPTOP"
+        else:
+            return "GENERIC"
+    
+    @staticmethod
+    def get_profile_settings(profile):
+        """Return optimized settings for each profile."""
+        settings = {
+            "A100_HIGH_PERFORMANCE": {
+                "batch_size": 128,
+                "model_depth": 16,
+                "cuda_memory_fraction": 0.95,
+                "num_workers": 42,
+                "description": "A100 80GB - High Performance Mode"
+            },
+            "RTX4060_LAPTOP": {
+                "batch_size": 8,
+                "model_depth": 8,
+                "cuda_memory_fraction": 0.85,
+                "num_workers": 4,
+                "description": "RTX 4060 8GB - Laptop Mode"
+            },
+            "GENERIC": {
+                "batch_size": 16,
+                "model_depth": 12,
+                "cuda_memory_fraction": 0.80,
+                "num_workers": 8,
+                "description": "Generic GPU - Standard Mode"
+            }
+        }
+        return settings.get(profile, settings["GENERIC"])
+
+
 class A100SetupChecker:
     """Verify A100 setup and provide optimization recommendations."""
     
@@ -19,6 +76,9 @@ class A100SetupChecker:
         self.checks = []
         self.warnings = []
         self.errors = []
+        self.profile = None
+        self.device_name = None
+        self.gpu_memory = None
     
     def check_python_version(self) -> bool:
         """Verify Python 3.12+ is installed."""
@@ -26,10 +86,10 @@ class A100SetupChecker:
         name = f"Python {version.major}.{version.minor}.{version.micro}"
         
         if version >= (3, 12):
-            self.checks.append(f"✓ {name}")
+            self.checks.append(f"[OK] {name}")
             return True
         else:
-            self.errors.append(f"✗ Python 3.12+ required, found {name}")
+            self.errors.append(f"[ERR] Python 3.12+ required, found {name}")
             return False
     
     def check_torch_installation(self) -> bool:
@@ -42,32 +102,32 @@ class A100SetupChecker:
             device_count = torch.cuda.device_count()
             
             if not cuda_available:
-                self.errors.append("✗ CUDA not available (GPU not detected)")
+                self.errors.append("[ERR] CUDA not available (GPU not detected)")
                 return False
             
-            self.checks.append(f"✓ PyTorch {pytorch_version}")
-            self.checks.append(f"✓ CUDA {cuda_version} with {device_count} GPU(s)")
+            self.checks.append(f"[OK] PyTorch {pytorch_version}")
+            self.checks.append(f"[OK] CUDA {cuda_version} with {device_count} GPU(s)")
             
             # Check device
             device = torch.cuda.get_device_name(0)
             compute_cap = torch.cuda.get_device_capability(0)
-            self.checks.append(f"✓ Device: {device}")
-            self.checks.append(f"✓ Compute Capability: {compute_cap[0]}.{compute_cap[1]}")
+            self.checks.append(f"[OK] Device: {device}")
+            self.checks.append(f"[OK] Compute Capability: {compute_cap[0]}.{compute_cap[1]}")
             
             # Check memory
             total_memory = torch.cuda.get_device_properties(0).total_memory
             total_gb = total_memory / 1024**3
-            self.checks.append(f"✓ GPU Memory: {total_gb:.1f}GB")
+            self.checks.append(f"[OK] GPU Memory: {total_gb:.1f}GB")
             
             if total_gb < 40:
-                self.warnings.append(f"⚠ GPU memory {total_gb:.1f}GB < 40GB recommended")
+                self.warnings.append(f"[WARN] GPU memory {total_gb:.1f}GB < 40GB recommended")
             
             return True
         except ImportError:
-            self.errors.append("✗ PyTorch not installed")
+            self.errors.append("[ERR] PyTorch not installed")
             return False
         except Exception as e:
-            self.errors.append(f"✗ Error checking PyTorch: {e}")
+            self.errors.append(f"[ERR] Error checking PyTorch: {e}")
             return False
     
     def check_cpu_cores(self) -> bool:
@@ -75,14 +135,14 @@ class A100SetupChecker:
         try:
             import multiprocessing
             cores = multiprocessing.cpu_count()
-            self.checks.append(f"✓ CPU Cores: {cores}")
+            self.checks.append(f"[OK] CPU Cores: {cores}")
             
             if cores < 32:
-                self.warnings.append(f"⚠ CPU cores {cores} < 42 cores recommended")
+                self.warnings.append(f"[WARN] CPU cores {cores} < 42 cores recommended")
             
             return True
         except Exception as e:
-            self.errors.append(f"✗ Error checking CPU: {e}")
+            self.errors.append(f"[ERR] Error checking CPU: {e}")
             return False
     
     def check_system_memory(self) -> bool:
@@ -92,14 +152,14 @@ class A100SetupChecker:
             total_mem = psutil.virtual_memory().total / 1024**3
             available_mem = psutil.virtual_memory().available / 1024**3
             
-            self.checks.append(f"✓ System Memory: {total_mem:.1f}GB (available: {available_mem:.1f}GB)")
+            self.checks.append(f"[OK] System Memory: {total_mem:.1f}GB (available: {available_mem:.1f}GB)")
             
             if total_mem < 256:
-                self.warnings.append(f"⚠ System RAM {total_mem:.1f}GB < 256GB recommended")
+                self.warnings.append(f"[WARN] System RAM {total_mem:.1f}GB < 256GB recommended")
             
             return True
         except ImportError:
-            self.warnings.append("⚠ psutil not installed (optional)")
+            self.warnings.append("[WARN] psutil not installed (optional)")
             return False
     
     def check_ollama_installation(self) -> bool:
@@ -113,13 +173,13 @@ class A100SetupChecker:
             )
             if result.returncode == 0:
                 version = result.stdout.strip()
-                self.checks.append(f"✓ Ollama installed: {version}")
+                self.checks.append(f"[OK] Ollama installed: {version}")
                 return True
             else:
-                self.warnings.append("⚠ Ollama not found in PATH")
+                self.warnings.append("[WARN] Ollama not found in PATH")
                 return False
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            self.warnings.append("⚠ Ollama not installed (optional for code generation)")
+            self.warnings.append("[WARN] Ollama not installed (optional for code generation)")
             return False
     
     def check_ollama_server(self) -> bool:
@@ -131,10 +191,10 @@ class A100SetupChecker:
                 timeout=2
             )
             if response.status == 200:
-                self.checks.append("✓ Ollama server is running")
+                self.checks.append("[OK] Ollama server is running")
                 return True
         except:
-            self.warnings.append("⚠ Ollama server not running (start with: ollama serve)")
+            self.warnings.append("[WARN] Ollama server not running (start with: ollama serve)")
             return False
     
     def check_disk_space(self) -> bool:
@@ -148,14 +208,14 @@ class A100SetupChecker:
             available_gb = stat.free / 1024**3
             total_gb = stat.total / 1024**3
             
-            self.checks.append(f"✓ Disk Space: {available_gb:.1f}GB available ({total_gb:.1f}GB total)")
+            self.checks.append(f"[OK] Disk Space: {available_gb:.1f}GB available ({total_gb:.1f}GB total)")
             
             if available_gb < 500:
-                self.warnings.append(f"⚠ Disk space {available_gb:.1f}GB < 500GB recommended")
+                self.warnings.append(f"[WARN] Disk space {available_gb:.1f}GB < 500GB recommended")
             
             return True
         except Exception as e:
-            self.warnings.append(f"⚠ Could not check disk space: {e}")
+            self.warnings.append(f"[WARN] Could not check disk space: {e}")
             return False
     
     def check_dependencies(self) -> bool:
@@ -173,9 +233,9 @@ class A100SetupChecker:
         for pkg in required:
             try:
                 __import__(pkg)
-                self.checks.append(f"✓ {pkg}")
+                self.checks.append(f"[OK] {pkg}")
             except ImportError:
-                self.errors.append(f"✗ {pkg} not installed")
+                self.errors.append(f"[ERR] {pkg} not installed")
                 all_found = False
         
         return all_found
@@ -233,16 +293,74 @@ class A100SetupChecker:
             print()
         
         if not self.errors:
-            print("✓ All critical checks passed!")
+            print("[OK] All critical checks passed!")
             print("\nREADY TO START TRAINING:")
             print("  1. Prepare data: python prepare.py")
             print("  2. Run training: uv run train.py")
         else:
-            print("✗ Please fix errors above before proceeding.")
+            print("[ERR] Please fix errors above before proceeding.")
         
         print("="*70 + "\n")
         
         return len(self.errors) == 0
+    
+    def detect_and_confirm_hardware(self):
+        """Auto-detect hardware and get user confirmation."""
+        print("\n" + "="*70)
+        print("   HARDWARE PROFILE DETECTION")
+        print("="*70 + "\n")
+        
+        device_name, gpu_memory = HardwareProfile.detect_gpu()
+        
+        if device_name is None:
+            print("[ERROR] No GPU detected!")
+            return None
+        
+        print(f"[DETECT] GPU Found: {device_name}")
+        print(f"[DETECT] VRAM: {gpu_memory:.1f} GB\n")
+        
+        profile = HardwareProfile.get_profile(device_name, gpu_memory)
+        settings = HardwareProfile.get_profile_settings(profile)
+        
+        print(f"Detected Profile: {settings['description']}\n")
+        print("Profile Settings:")
+        print(f"  - Batch Size: {settings['batch_size']}")
+        print(f"  - Model Depth: {settings['model_depth']} layers")
+        print(f"  - CUDA Memory: {settings['cuda_memory_fraction']*100:.0f}%")
+        print(f"  - Parallel Workers: {settings['num_workers']}")
+        
+        print("\nProfile Options:")
+        print("  1. Accept detected profile (recommended)")
+        print("  2. Force A100 High Performance Mode")
+        print("  3. Force RTX 4060 Laptop Mode")
+        print("  4. Force Generic Mode")
+        
+        while True:
+            choice = input("\nSelect option [1-4]: ").strip()
+            if choice in ['1', '2', '3', '4']:
+                break
+            print("Invalid choice. Please enter 1-4.")
+        
+        if choice == '1':
+            confirmed_profile = profile
+        elif choice == '2':
+            confirmed_profile = "A100_HIGH_PERFORMANCE"
+        elif choice == '3':
+            confirmed_profile = "RTX4060_LAPTOP"
+        else:
+            confirmed_profile = "GENERIC"
+        
+        confirmed_settings = HardwareProfile.get_profile_settings(confirmed_profile)
+        print(f"\n[OK] Profile Confirmed: {confirmed_settings['description']}")
+        
+        self.profile = confirmed_profile
+        self.device_name = device_name
+        self.gpu_memory = gpu_memory
+        
+        # Save profile to environment variable for train.py to use
+        os.environ['HARDWARE_PROFILE'] = confirmed_profile
+        
+        return confirmed_profile, confirmed_settings
 
 
 def print_optimization_summary():
@@ -255,17 +373,17 @@ def print_optimization_summary():
 HARDWARE OPTIMIZATIONS:
 
 GPU (NVIDIA A100 80GB):
-  ✓ Mixed precision training (BF16)
-  ✓ Flash Attention v3 with sliding windows
-  ✓ Tensor core utilization (>40% MFU target)
-  ✓ Memory efficient (35-42GB peak usage)
-  ✓ Maximum batch size for your VRAM
+  [OK] Mixed precision training (BF16)
+  [OK] Flash Attention v3 with sliding windows
+  [OK] Tensor core utilization (>40% MFU target)
+  [OK] Memory efficient (35-42GB peak usage)
+  [OK] Maximum batch size for your VRAM
 
 CPU (Intel Xeon 42-core):
-  ✓ 42 parallel download workers (vs 8)
-  ✓ Optimized tokenizer batch size (256)
-  ✓ Asynchronous data pipeline
-  ✓ Multi-threaded BLAS operations
+  [OK] 42 parallel download workers (vs 8)
+  [OK] Optimized tokenizer batch size (256)
+  [OK] Asynchronous data pipeline
+  [OK] Multi-threaded BLAS operations
 
 TRAINING IMPROVEMENTS:
 
@@ -282,10 +400,10 @@ Training Efficiency:
 CODE GENERATION:
 
 DeepSeek Coder Integration:
-  ✓ Automated code optimization
-  ✓ Performance benchmarking
-  ✓ Documentation generation
-  ✓ Multiple model sizes (1.3B-33B)
+  [OK] Automated code optimization
+  [OK] Performance benchmarking
+  [OK] Documentation generation
+  [OK] Multiple model sizes (1.3B-33B)
 
 EXPECTED PERFORMANCE:
 
@@ -325,6 +443,15 @@ NEXT STEPS:
 if __name__ == "__main__":
     checker = A100SetupChecker()
     success = checker.run_all_checks()
+    
+    if success:
+        # Hardware detection after passing all checks
+        result = checker.detect_and_confirm_hardware()
+        if result:
+            profile, settings = result
+            print(f"\n[SUCCESS] Hardware profile configured!")
+            print(f"[INFO] Profile: {settings['description']}")
+            print(f"[INFO] Use this configuration for optimal training.")
     
     print_optimization_summary()
     

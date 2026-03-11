@@ -1,0 +1,8 @@
+[2026-03-11 19:59:58] ========== TRAINING START ==========
+[2026-03-11 19:59:58] Duration: 5m 0s
+[2026-03-11 19:59:58] Hardware Profile: A100 80GB - High Performance Mode
+[2026-03-11 19:59:58] Dataset: climbmix
+[2026-03-11 19:59:58] Shards: 10
+[2026-03-11 19:59:58] Workers: 42
+[2026-03-11 19:59:58] ====================================
+[2026-03-11 20:00:02] Using 'uv' runner to start training (TIME_BUDGET=300s)

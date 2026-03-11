@@ -1,13 +1,13 @@
-# 📊 AutoResearcher Training Metrics
+# [DATA] AutoResearcher Training Metrics
 
 This folder contains automatically generated training metrics graphs from each training run.
 
-## 📈 Graph Files
+## [METRICS] Graph Files
 
 - **`training_metrics_latest.png`** ⭐ **START HERE** - The most recent training run graph
 - **`training_metrics_YYYYMMDD_HHMMSS.png`** - Timestamped archives of all previous runs
 
-## 📊 What the Graph Shows
+## [DATA] What the Graph Shows
 
 The main metrics graph is a 4-panel visualization showing:
 
@@ -57,23 +57,23 @@ The main metrics graph is a 4-panel visualization showing:
 - **Avg/Peak Throughput**: Average and maximum tokens/second
 - **Time Budget Remaining**: Seconds left in the training window
 
-## 🔍 Interpreting the Results
+## [SEARCH] Interpreting the Results
 
-### Good Training Indicators ✅
+### Good Training Indicators [OK]
 - Loss curve is smooth and continuously decreasing
 - Loss improvement is positive (>0%)
 - MFU stabilizes quickly (by step 5)
 - Throughput is consistent (~90-140M tok/sec)
 - No sudden drops or spikes in throughput
 
-### Warning Signs ⚠️
+### Warning Signs [WARNING]
 - Loss increases instead of decreases
 - Loss curve is very noisy/jagged
 - MFU stuck at very low values (<0.5%) after step 10
 - Throughput varies wildly between steps
 - Training stops prematurely
 
-### Expected Patterns 📊
+### Expected Patterns [DATA]
 
 For a 5-minute training run with ~24 steps:
 ```
@@ -116,7 +116,7 @@ For longer runs (1+ hour):
 - Normal range: 80-140M tok/sec
 - Step 0 is slower due to JIT compilation
 
-## 🎯 Common Questions
+## [CORE] Common Questions
 
 **Q: Why is step 0 so slow?**
 A: First step includes model JIT compilation, weight initialization, and cache warmup. It's normal for step 0 to be 10x slower than subsequent steps.
@@ -129,10 +129,10 @@ A: Each training run covers only one pass through the data (1 epoch) because we 
 
 **Q: How long should I train?**
 A: 
-- **5 minutes**: Quick test, see if setup works ⚡
-- **10 minutes**: Standard test run ✓
-- **30+ minutes**: Real training with meaningful results 📊
-- **1+ hour**: Production training 🚀
+- **5 minutes**: Quick test, see if setup works [FAST]
+- **10 minutes**: Standard test run [OK]
+- **30+ minutes**: Real training with meaningful results [DATA]
+- **1+ hour**: Production training [STARTUP]
 
 **Q: Can I use these graphs?**
 A: Yes! All graphs are automatically saved and ready to share. Use `training_metrics_latest.png` in presentations, reports, or documentation.

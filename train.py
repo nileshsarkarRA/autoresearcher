@@ -22,22 +22,22 @@ def ensure_module(module_name, pip_name=None):
         __import__(module_name)
         return True
     except ImportError:
-        print(f"📦 [Fallback] Installing missing dependency: {pip_name}...")
+        print(f"[Fallback] Installing missing dependency: {pip_name}...")
         try:
             # Use uv pip install (should work if autoresearcher pre-installed)
             result = subprocess.run(["uv", "pip", "install", "-q", pip_name], 
                                   capture_output=True, timeout=60)
             if result.returncode == 0:
-                print(f"✅ Successfully installed {pip_name}")
+                print(f"[SUCCESS] Successfully installed {pip_name}")
                 return True
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
             pass
         
-        print(f"⚠️  Failed to install {pip_name}")
+        print(f"[WARNING] Failed to install {pip_name}")
         return False
 
 # Ensure critical packages are available
-print("\n🔍 Verifying required packages...")
+print("\n[STARTUP] Verifying required packages...")
 required_packages = {"psutil": "psutil"}
 failed = []
 
@@ -46,13 +46,13 @@ for module_name, pip_name in required_packages.items():
         failed.append(pip_name)
 
 if failed:
-    print(f"\n⚠️  Missing packages: {', '.join(failed)} - these should have been installed by autoresearcher")
+    print(f"\n[WARNING] Missing packages: {', '.join(failed)} - these should have been installed by autoresearcher")
 
 # Import with fallback for psutil (optional module)
 try:
     import psutil
 except ImportError:
-    print("⚠️  psutil import failed - continuing without system memory monitoring")
+    print("[WARNING] psutil import failed - continuing without system memory monitoring")
     # Create a minimal mock psutil for memory functions
     class MockPsutil:
         @staticmethod
@@ -479,50 +479,97 @@ class MuonAdamW(torch.optim.Optimizer):
                 self._step_muon(group)
 
 # ---------------------------------------------------------------------------
-# Hyperparameters (edit these directly, no CLI flags needed)
-# Optimized for NVIDIA A100 80GB GPU with Intel Xeon 42 cores
+# Hyperparameters — auto-selected by HARDWARE_PROFILE env var
+# Profiles: A100_HIGH_PERFORMANCE | RTX4060_LAPTOP | GENERIC
 # ---------------------------------------------------------------------------
+
+# Read hardware profile from environment (set by autoresearcher bash script)
+_hw_profile   = os.environ.get("HARDWARE_PROFILE", "GENERIC").strip()
+_cuda_frac    = float(os.environ.get("CUDA_MEMORY_FRACTION", "0.80"))
+
+# Profile table — (depth, device_batch_size, total_batch_tokens)
+_PROFILES = {
+    # A100 80GB PCIe: slightly conservative vs SXM — PCIe shares host bandwidth
+    # depth=8, batch=64 → ~26GB VRAM, well within 80GB
+    "A100_HIGH_PERFORMANCE": dict(depth=8,  device_batch=64,  total_batch=2**19),
+    # RTX 4060 8GB laptop: minimal footprint
+    "RTX4060_LAPTOP":        dict(depth=4,  device_batch=4,   total_batch=2**16),
+    # Generic: safe conservative baseline
+    "GENERIC":               dict(depth=6,  device_batch=8,   total_batch=2**17),
+}
+
+_prof = _PROFILES.get(_hw_profile, _PROFILES["GENERIC"])
+print(f"[HARDWARE] Profile: {_hw_profile}  (depth={_prof['depth']}, batch={_prof['device_batch']}, total_tokens={_prof['total_batch']:,})")
 
 # Auto-detect system specifications
 _system_ram_gb = psutil.virtual_memory().total / 1024 / 1024 / 1024
 _system_storage_gb = psutil.disk_usage("/").total / 1024 / 1024 / 1024
 
 # Model architecture
-ASPECT_RATIO = 128      # model_dim = depth * ASPECT_RATIO (increased for larger model on A100)
+ASPECT_RATIO = 128      # model_dim = depth * ASPECT_RATIO
 HEAD_DIM = 128          # target head dimension for attention
 WINDOW_PATTERN = "SSSL" # sliding window pattern: L=full, S=half context
 
 # Optimization
-TOTAL_BATCH_SIZE = 2**20 # ~1M tokens per optimizer step (doubled for A100 memory)
-EMBEDDING_LR = 0.6      # learning rate for token embeddings (Adam)
-UNEMBEDDING_LR = 0.004  # learning rate for lm_head (Adam)
-MATRIX_LR = 0.04        # learning rate for matrix parameters (Muon)
-SCALAR_LR = 0.5         # learning rate for per-layer scalars (Adam)
-WEIGHT_DECAY = 0.2      # cautious weight decay for Muon
-ADAM_BETAS = (0.8, 0.95) # Adam beta1, beta2
-WARMUP_RATIO = 0.0      # fraction of time budget for LR warmup
-WARMDOWN_RATIO = 0.5    # fraction of time budget for LR warmdown
-FINAL_LR_FRAC = 0.0     # final LR as fraction of initial
+TOTAL_BATCH_SIZE  = _prof["total_batch"]   # tokens per optimizer step
+EMBEDDING_LR   = 0.6
+UNEMBEDDING_LR = 0.004
+MATRIX_LR      = 0.04
+SCALAR_LR      = 0.5
+WEIGHT_DECAY   = 0.2
+ADAM_BETAS     = (0.8, 0.95)
+WARMUP_RATIO   = 0.0
+WARMDOWN_RATIO = 0.5
+FINAL_LR_FRAC  = 0.0
 
-# Model size
-DEPTH = 8               # number of transformer layers (8 for stable A100 80GB training)
-                        # Depth=8 + DEVICE_BATCH_SIZE=96 = safe fit on A100 80GB with room for activations
-DEVICE_BATCH_SIZE = 96  # per-device batch size (A100 80GB: can safely handle 96 with depth=8)
+# Model size — from profile (can be overridden further down by OOM logic)
+DEPTH             = _prof["depth"]
+DEVICE_BATCH_SIZE = _prof["device_batch"]
+
+# Cap DEVICE_BATCH_SIZE by available VRAM as a safety net
+# (each profile's batch was chosen conservatively, but just in case)
+def _safe_batch_for_vram(depth, batch):
+    """Return the largest power-of-two batch that fits safely given VRAM."""
+    try:
+        total_vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        # Rough heuristic: each token·layer costs ~4MB in activations (bf16 + grads)
+        # We cap at CUDA_MEMORY_FRACTION of total VRAM
+        budget_gb = total_vram_gb * _cuda_frac
+        # Simple floor: if < 10 GB keep batch ≤ 4, < 20 GB ≤ 8, else let profile decide
+        if budget_gb < 10:
+            return min(batch, 4)
+        elif budget_gb < 20:
+            return min(batch, 8)
+        elif budget_gb < 40:
+            return min(batch, 16)
+        else:
+            return batch
+    except Exception:
+        return batch
+
+DEVICE_BATCH_SIZE = _safe_batch_for_vram(DEPTH, DEVICE_BATCH_SIZE)
 
 # Dynamic memory adjustment function
 def get_memory_reduction_step(current_depth, current_batch_size, step_number):
     """
-    Returns reduced depth and batch_size to handle OOM errors.
-    Progressively reduces model size: batch_size -> depth -> batch_size again
+    Returns reduced (depth, batch_size) to handle OOM errors.
+    Halves batch first, then reduces depth, repeating until depth=2 batch=1.
     """
-    reduction_map = {
-        0: (current_depth, int(current_batch_size * 0.75)),     # Step 1: reduce batch by 25%
-        1: (max(8, current_depth - 2), current_batch_size),     # Step 2: reduce depth by 2
-        2: (max(8, current_depth - 4), int(current_batch_size * 0.75)),  # Step 3: reduce both
-    }
-    if step_number not in reduction_map:
-        return None, None  # Can't reduce further
-    return reduction_map[step_number]
+    if step_number == 0:
+        new_batch = max(1, current_batch_size // 2)
+        return current_depth, new_batch
+    elif step_number == 1:
+        new_depth = max(2, current_depth - 2)
+        return new_depth, current_batch_size
+    elif step_number == 2:
+        new_batch = max(1, current_batch_size // 2)
+        new_depth = max(2, current_depth - 2)
+        return new_depth, new_batch
+    elif step_number == 3:
+        new_batch = max(1, current_batch_size // 2)
+        return current_depth, new_batch
+    else:
+        return None, None  # Truly cannot fit — give up
 
 def get_available_vram_gb():
     """Get available GPU VRAM in GB"""
@@ -543,7 +590,7 @@ def log_memory_status(prefix=""):
 CURRENT_DEPTH = DEPTH
 CURRENT_BATCH_SIZE = DEVICE_BATCH_SIZE
 OOM_RETRY_COUNT = 0
-MAX_OOM_RETRIES = 3
+MAX_OOM_RETRIES = 5   # depth=8→6→4→2 + batch halving gives ample room
 
 t_start = time.time()
 torch.manual_seed(42)
@@ -576,7 +623,7 @@ while OOM_RETRY_COUNT < MAX_OOM_RETRIES and not model_built:
         gc.collect()
         
         config = build_model_config(CURRENT_DEPTH)
-        print(f"🔨 Building model: depth={CURRENT_DEPTH}, batch_size={CURRENT_BATCH_SIZE}")
+        print(f"[BUILD] Building model: depth={CURRENT_DEPTH}, batch_size={CURRENT_BATCH_SIZE}")
         log_memory_status("Pre-build")
         
         with torch.device("meta"):
@@ -584,7 +631,7 @@ while OOM_RETRY_COUNT < MAX_OOM_RETRIES and not model_built:
         model.to_empty(device=device)
         model.init_weights()
         
-        print(f"✅ Model built successfully with {CURRENT_DEPTH} layers")
+        print(f"[SUCCESS] Model built successfully with {CURRENT_DEPTH} layers")
         log_memory_status("Post-build")
         model_built = True
         
@@ -595,11 +642,11 @@ while OOM_RETRY_COUNT < MAX_OOM_RETRIES and not model_built:
             next_depth, next_batch = get_memory_reduction_step(CURRENT_DEPTH, CURRENT_BATCH_SIZE, OOM_RETRY_COUNT)
             
             if next_depth is None:
-                print(f"\n❌ FATAL: Cannot reduce model further. OOM after {OOM_RETRY_COUNT} retries.")
+                print(f"\n[FATAL] Cannot reduce model further. OOM after {OOM_RETRY_COUNT} retries.")
                 print(f"   Error: {str(e)}")
                 sys.exit(1)
             
-            print(f"\n⚠️  OOM detected! Retrying with reduced parameters...")
+            print(f"\n[WARNING] OOM detected! Retrying with reduced parameters...")
             print(f"   Current: depth={CURRENT_DEPTH}, batch={CURRENT_BATCH_SIZE}")
             print(f"   Reduced: depth={next_depth}, batch={next_batch}")
             print(f"   Error: {str(e)[:100]}...")
@@ -642,7 +689,7 @@ optimizer = model.setup_optimizer(
     weight_decay=WEIGHT_DECAY,
 )
 
-print(f"\n🚀 Starting training with CURRENT_BATCH_SIZE={CURRENT_BATCH_SIZE}, CURRENT_DEPTH={CURRENT_DEPTH}")
+print(f"\n[STARTUP] Starting training with CURRENT_BATCH_SIZE={CURRENT_BATCH_SIZE}, CURRENT_DEPTH={CURRENT_DEPTH}")
 if OOM_RETRY_COUNT > 0:
     print(f"   (Adjusted from original after {OOM_RETRY_COUNT} OOM retry(ies))\n")
 
@@ -681,7 +728,54 @@ smooth_train_loss = 0
 total_training_time = 0
 step = 0
 
+# Flag to signal that we need to rebuild model (set by OOM handler in inner loop)
+_oom_rebuild_needed = False
+_oom_train_retries  = 0
+MAX_TRAIN_OOM_RETRIES = 5
+
 while True:
+    # ---- OOM rebuild: re-enter outer loop with smaller model ----
+    if _oom_rebuild_needed:
+        _oom_rebuild_needed = False
+        if _oom_train_retries >= MAX_TRAIN_OOM_RETRIES:
+            print(f"\n[FATAL] OOM even after {_oom_train_retries} retries — cannot fit model on this GPU.")
+            sys.exit(1)
+
+        next_depth, next_batch = get_memory_reduction_step(CURRENT_DEPTH, CURRENT_BATCH_SIZE, _oom_train_retries)
+        if next_depth is None:
+            print(f"\n[FATAL] Cannot reduce model further after {_oom_train_retries} OOM retries.")
+            sys.exit(1)
+
+        print(f"\n[OOM-RECOVER] Retrying: depth {CURRENT_DEPTH}->{next_depth}, batch {CURRENT_BATCH_SIZE}->{next_batch}")
+        CURRENT_DEPTH       = next_depth
+        CURRENT_BATCH_SIZE  = next_batch
+        _oom_train_retries += 1
+
+        # Rebuild model
+        torch.cuda.empty_cache(); gc.collect()
+        config = build_model_config(CURRENT_DEPTH)
+        with torch.device("meta"):
+            model = GPT(config)
+        model.to_empty(device=device)
+        model.init_weights()
+        model = torch.compile(model, dynamic=False)
+
+        # Rebuild dataloader & optimizer with new batch size
+        tokens_per_fwdbwd    = CURRENT_BATCH_SIZE * MAX_SEQ_LEN
+        adjusted_total_batch = max(tokens_per_fwdbwd,
+                                   (TOTAL_BATCH_SIZE // tokens_per_fwdbwd) * tokens_per_fwdbwd)
+        grad_accum_steps     = max(1, adjusted_total_batch // tokens_per_fwdbwd)
+        train_loader         = make_dataloader(tokenizer, CURRENT_BATCH_SIZE, MAX_SEQ_LEN, "train")
+        optimizer            = model.setup_optimizer(
+            unembedding_lr=UNEMBEDDING_LR, embedding_lr=EMBEDDING_LR,
+            scalar_lr=SCALAR_LR, adam_betas=ADAM_BETAS,
+            matrix_lr=MATRIX_LR, weight_decay=WEIGHT_DECAY,
+        )
+        x, y, epoch = next(train_loader)
+        step = 0   # restart step counter after rebuild
+        smooth_train_loss = 0
+        log_memory_status("[OOM-RECOVER] Post-rebuild")
+
     torch.cuda.synchronize()
     t0 = time.time()
     for grad_accum_idx in range(grad_accum_steps):
@@ -691,12 +785,11 @@ while True:
             except RuntimeError as e:
                 if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
                     torch.cuda.empty_cache()
-                    print(f"\n❌ OOM during training at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
-                    print(f"   Current: batch_size={CURRENT_BATCH_SIZE}, depth={CURRENT_DEPTH}")
-                    print(f"   Error: {str(e)[:80]}...")
-                    log_memory_status("OOM")
-                    print("\n💡 Try reducing --minutes or use --deepseek flag to save memory")
-                    sys.exit(1)
+                    print(f"\n[OOM] Forward pass at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
+                    print(f"   batch_size={CURRENT_BATCH_SIZE}, depth={CURRENT_DEPTH}")
+                    log_memory_status("OOM-fwd")
+                    _oom_rebuild_needed = True
+                    break   # break grad_accum loop → outer while re-checks flag
                 else:
                     raise
         
@@ -707,15 +800,19 @@ while True:
         except RuntimeError as e:
             if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
                 torch.cuda.empty_cache()
-                print(f"\n❌ OOM during backward pass at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
-                print(f"   Error: {str(e)[:80]}...")
-                log_memory_status("OOM-backward")
-                print("\n💡 Try reducing --minutes or use --deepseek flag to save memory")
-                sys.exit(1)
+                print(f"\n[OOM] Backward pass at step {step}, batch {grad_accum_idx}/{grad_accum_steps}")
+                log_memory_status("OOM-bwd")
+                _oom_rebuild_needed = True
+                break   # break grad_accum loop → outer while re-checks flag
             else:
                 raise
         
         x, y, epoch = next(train_loader)
+
+    # If OOM occurred inside grad_accum loop, skip optimizer step and loop back
+    if _oom_rebuild_needed:
+        model.zero_grad(set_to_none=True)
+        continue
 
     # Progress and schedules
     progress = min(total_training_time / TIME_BUDGET, 1.0)
@@ -766,6 +863,7 @@ while True:
     step += 1
 
     # Time's up — but only stop after warmup steps so we don't count compilation
+    # Note: TIME_BUDGET includes 10 second buffer to ensure full 100% training completion
     if step > 10 and total_training_time >= TIME_BUDGET:
         break
 

@@ -2,20 +2,22 @@
 
 ################################################################################
 #                                                                              #
-#           AutoResearcher A100 - Master Pipeline with Timer & Logger          #
+#                         AUTORESEARCHER                                       #
+#                   Master Pipeline with Timer and Logger                      #
 #                                                                              #
 #  Complete automated pipeline with user prompts for training duration.        #
 #  Features:                                                                   #
-#    • Interactive timer configuration                                         #
-#    • Live terminal output during training                                    #
-#    • Comprehensive logging to file                                           #
-#    • Automatic graph generation from logs                                    #
-#    • Automatic stop at time limit                                            #
+#    - Interactive timer configuration                                         #
+#    - Automatic hardware detection (A100 / RTX 4060 / Generic)               #
+#    - Live terminal output during training                                    #
+#    - Comprehensive logging to file                                           #
+#    - Automatic graph generation from logs                                    #
+#    - Automatic stop at time limit                                            #
 #                                                                              #
 #  Usage:                                                                      #
-#    ./run_all.sh                      # Interactive mode                      #
-#    ./run_all.sh --minutes 10         # Automated (10 min)                    #
-#    ./run_all.sh --hours 2 --dataset arxiv  # 2 hours ArXiv                   #
+#    ./autoresearcher                      # Interactive mode                  #
+#    ./autoresearcher --minutes 10         # Automated (10 min)                #
+#    ./autoresearcher --hours 2 --dataset arxiv  # 2 hours ArXiv              #
 #                                                                              #
 ################################################################################
 
@@ -29,23 +31,34 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 WHITE='\033[1;37m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# ASCII Art Banner
+# ---------------------------------------------------------------------------
+# Banner
+# ---------------------------------------------------------------------------
 print_banner() {
     clear
-    echo -e "${CYAN}"
-    echo "╔═══════════════════════════════════════════════════════════════════════╗"
-    echo "║                                                                       ║"
-    echo "║          🚀 AutoResearcher - A100 80GB Complete Pipeline 🚀           ║"
-    echo "║                                                                       ║"
-    echo "║  Optimized for: NVIDIA A100 80GB | Intel Xeon 42-core | Python 3.12   ║"
-    echo "║                                                                       ║"
-    echo "║  📊 Graphs exported to: assets/training_metrics_*.png                 ║"
-    echo "║  📝 Logs saved to: logs/training_*.log                                ║"
-    echo "║                                                                       ║"
-    echo "╚═══════════════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}\n"
+    echo ""
+    echo -e "${BOLD}${CYAN}  ╔════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BOLD}${CYAN}  ║                                                                    ║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}█████╗ ██╗   ██╗████████╗ ██████╗ ██████╗ ███████╗                ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗██╔══██╗██╔════╝               ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}███████║██║   ██║   ██║   ██║   ██║██████╔╝█████╗                 ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}██╔══██║██║   ██║   ██║   ██║   ██║██╔══██╗██╔══╝                 ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}██║  ██║╚██████╔╝   ██║   ╚██████╔╝██║  ██║███████╗               ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${BOLD}${WHITE}╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝               ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║                                                                    ║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}███████╗███████╗ █████╗ ██████╗  ██████╗██╗  ██╗███████╗██████╗   ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}██╔════╝██╔════╝██╔══██╗██╔══██╗██╔════╝██║  ██║██╔════╝██╔══██╗  ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}███████╗█████╗  ███████║██████╔╝██║     ███████║█████╗  ██████╔╝  ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}╚════██║██╔══╝  ██╔══██║██╔══██╗██║     ██╔══██║██╔══╝  ██╔══██╗  ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}███████║███████╗██║  ██║██║  ██║╚██████╗██║  ██║███████╗██║  ██║  ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║  ${MAGENTA}╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝  ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ║                                                                    ║${NC}"
+    echo -e "${BOLD}${CYAN}  ║    ${YELLOW}Autonomous Pretraining Pipeline  |  Multi-GPU Profile Support   ${BOLD}${CYAN}║${NC}"
+    echo -e "${BOLD}${CYAN}  ╚════════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
 }
 
 # Timing
@@ -101,25 +114,25 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Usage: $0 [OPTIONS]"
             echo ""
-            echo "⏱️  TRAINING DURATION (total run time):"
+            echo "[TIME] TRAINING DURATION (total run time):"
             echo "  --minutes N              Training duration in minutes (default: 10)"
             echo "  --hours N                Training duration in hours"
-            echo "  📌 Recommended: 10-60 minutes for meaningful training"
+            echo "  [NOTE] Recommended: 10-60 minutes for meaningful training"
             echo ""
-            echo "🔄 FEEDBACK INTERVAL (how often to improve/evaluate):"
+            echo "[LOOP] FEEDBACK INTERVAL (how often to improve/evaluate):"
             echo "  --improve-interval N     DeepSeek code feedback interval in minutes (default: 5)"
-            echo "  📌 Recommended: 5 minutes (feedback every ~5 min during training)"
-            echo "  ℹ️  Only used with --deepseek flag"
+            echo "  [NOTE] Recommended: 5 minutes (feedback every ~5 min during training)"
+            echo "  [INFO] Only used with --deepseek flag"
             echo ""
-            echo "📊 DATA OPTIONS:"
+            echo "[DATA] DATA OPTIONS:"
             echo "  --dataset NAME           Dataset (climbmix, arxiv, wiki, code, stackexchange)"
             echo "  --shards N               Number of data shards (default: 10)"
             echo "  --workers N              Parallel workers for data loading (default: 42)"
             echo ""
-            echo "🤖 DEEPSEEK INTEGRATION:"
+            echo "[AI] DEEPSEEK INTEGRATION:"
             echo "  --deepseek               Enable DeepSeek Coder for code optimization"
             echo ""
-            echo "📋 EXAMPLES:"
+            echo "[EXAMPLES]:"
             echo "  ./autoresearcher"
             echo "    → Interactive mode (answer prompts)"
             echo ""
@@ -153,23 +166,23 @@ print_header() {
 }
 
 print_status() {
-    echo -e "${GREEN}✓${NC} $1"
+    echo -e "${GREEN}[OK]${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}✗${NC} $1"
+    echo -e "${RED}[ERR]${NC} $1"
 }
 
 print_info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 print_section() {
-    echo -e "\n${MAGENTA}▶ $1${NC}"
+    echo -e "\n${MAGENTA}>> $1${NC}"
 }
 
 format_time() {
@@ -205,11 +218,11 @@ ensure_python_packages() {
     local packages=("psutil" "torch" "numpy" "pandas" "pyarrow" "tiktoken" "matplotlib")
     local missing_packages=()
     
-    print_info "🔍 Pre-downloading all Python dependencies with uv..."
+    print_info "Pre-downloading all Python dependencies with uv..."
     
     # First, ensure uv sync runs to get all pyproject.toml dependencies
     if command -v uv &> /dev/null; then
-        print_info "📦 Running 'uv sync' to ensure venv is up-to-date..."
+        print_info "[PACKAGE] Running 'uv sync' to ensure venv is up-to-date..."
         if uv sync --upgrade 2>/dev/null; then
             print_status "uv sync completed"
         else
@@ -232,11 +245,11 @@ ensure_python_packages() {
     done
     
     if [ ${#missing_packages[@]} -gt 0 ]; then
-        print_info "📦 Installing missing packages via uv: ${missing_packages[@]}"
+        print_info "[PACKAGE] Installing missing packages via uv: ${missing_packages[@]}"
         if command -v uv &> /dev/null; then
             # Use uv pip install for better compatibility
             if uv pip install -q "${missing_packages[@]}" 2>/dev/null; then
-                print_status "All missing packages installed via uv ✓"
+                print_status "All missing packages installed via uv [OK]"
             else
                 print_warning "Some packages could not be installed via uv, attempting fallback..."
                 for pip_pkg in "${missing_packages[@]}"; do
@@ -251,7 +264,7 @@ ensure_python_packages() {
             print_warning "uv not available, skipping dependency installation"
         fi
     else
-        print_status "All dependencies found! ✓"
+        print_status "All dependencies found! [OK]"
     fi
 }
 
@@ -310,23 +323,23 @@ try:
     import matplotlib
     matplotlib.use('Agg')  # Non-interactive backend
 except ImportError:
-    print("❌ matplotlib not available. Skipping graph generation.")
+    print("[WARN] matplotlib not available. Skipping graph generation.")
     exit(0)
 
 # Find the most recent training log file
 logs_dir = Path("logs")
 if not logs_dir.exists():
-    print("❌ No logs directory found. Skipping graph generation.")
+    print("[WARN] No logs directory found. Skipping graph generation.")
     exit(0)
 
 # Find the most recent training log
 log_files = sorted(logs_dir.glob("training_*.log"), reverse=True)
 if not log_files:
-    print("❌ No training log found in logs/ directory. Skipping graph generation.")
+    print("[WARN] No training log found in logs/ directory. Skipping graph generation.")
     exit(0)
 
 log_file = log_files[0]
-print(f"📖 Parsing log file: {log_file}")
+print(f"[INFO] Parsing log file: {log_file}")
 
 steps = []
 losses = []
@@ -367,14 +380,14 @@ with open(log_file, 'r') as f:
                 remainings.append(int(remaining_match.group(1)))
 
 if not steps or len(steps) < 2:
-    print(f"❌ Insufficient data: found {len(steps)} steps. Need at least 2. Skipping graph generation.")
+    print(f"[WARN] Insufficient data: found {len(steps)} steps. Need at least 2. Skipping graph generation.")
     exit(0)
 
-print(f"✓ Parsed {len(steps)} training steps")
+print(f"[OK] Parsed {len(steps)} training steps")
 
 # Create figure with subplots
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-fig.suptitle(f'A100 Training Metrics - {len(steps)} Steps', fontsize=16, fontweight='bold')
+fig.suptitle(f'AutoResearcher Training Metrics - {len(steps)} Steps', fontsize=16, fontweight='bold')
 
 # Plot 1: Loss curve
 ax = axes[0, 0]
@@ -467,20 +480,20 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 output_file = f'assets/training_metrics_{timestamp}.png'
 try:
     plt.savefig(output_file, dpi=120, bbox_inches='tight', facecolor='white')
-    print(f"✅ Graph saved as: {output_file}")
+    print(f"[OK] Graph saved as: {output_file}")
 except Exception as e:
-    print(f"❌ Error saving graph: {e}")
+    print(f"[ERR] Error saving graph: {e}")
     exit(1)
 
 # Also save latest copy
 try:
     plt.savefig('assets/training_metrics_latest.png', dpi=120, bbox_inches='tight', facecolor='white')
-    print(f"✅ Latest graph updated: assets/training_metrics_latest.png")
+    print(f"[OK] Latest graph updated: assets/training_metrics_latest.png")
 except Exception as e:
-    print(f"❌ Error saving latest graph: {e}")
+    print(f"[ERR] Error saving latest graph: {e}")
 
 plt.close()
-print("✓ Graph generation complete!")
+print("[OK] Graph generation complete!")
 
 PYTHON_EOF
 }
@@ -489,16 +502,16 @@ PYTHON_EOF
 if [ "$SKIP_PROMPTS" = false ]; then
     print_banner
     
-    print_header "⏱️  Training Duration"
+    print_header "[TIME] Training Duration"
     echo -e "${CYAN}Select how long you want to train:${NC}"
-    echo -e "  ${MAGENTA}1${NC}. ${YELLOW}⚡${NC} Quick test      (5 minutes)"
-    echo -e "  ${MAGENTA}2${NC}. ${GREEN}✓${NC} Standard        (10 minutes) ${WHITE}[DEFAULT]${NC}"
-    echo -e "  ${MAGENTA}3${NC}. ${BLUE}●${NC} Extended        (20 minutes)"
-    echo -e "  ${MAGENTA}4${NC}. ${CYAN}■${NC} Long run        (30 minutes)"
-    echo -e "  ${MAGENTA}5${NC}. ${RED}★${NC} Extended        (60 minutes)"
-    echo -e "  ${MAGENTA}6${NC}. ${WHITE}⚙${NC} Custom          (enter manually)"
+    echo -e "  ${MAGENTA}1${NC}. Quick test      (5 minutes)"
+    echo -e "  ${MAGENTA}2${NC}. Standard        (10 minutes) ${WHITE}[DEFAULT]${NC}"
+    echo -e "  ${MAGENTA}3${NC}. Extended        (20 minutes)"
+    echo -e "  ${MAGENTA}4${NC}. Long run        (30 minutes)"
+    echo -e "  ${MAGENTA}5${NC}. Deep run        (60 minutes)"
+    echo -e "  ${MAGENTA}6${NC}. Custom          (enter manually)"
     echo ""
-    read -p "$(echo -e "${MAGENTA}▶${NC} Choose option (1-6) [default: 2]: ")" DURATION_CHOICE
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Choose option (1-6) [default: 2]: ")" DURATION_CHOICE
     DURATION_CHOICE=${DURATION_CHOICE:-2}
     
     case $DURATION_CHOICE in
@@ -508,7 +521,7 @@ if [ "$SKIP_PROMPTS" = false ]; then
         4) TRAINING_MINUTES=30 ;;
         5) TRAINING_MINUTES=60 ;;
         6)
-            read -p "$(echo -e "${MAGENTA}▶${NC} Enter training duration in minutes: ")" TRAINING_MINUTES
+            read -p "$(echo -e "${MAGENTA}[?]${NC} Enter training duration in minutes: ")" TRAINING_MINUTES
             if ! [[ "$TRAINING_MINUTES" =~ ^[0-9]+$ ]]; then
                 print_warning "Invalid input. Using 10 minutes."
                 TRAINING_MINUTES=10
@@ -517,15 +530,15 @@ if [ "$SKIP_PROMPTS" = false ]; then
         *) TRAINING_MINUTES=10 ;;
     esac
     
-    print_header "📊 Dataset Selection"
+    print_header "[DATA] Dataset Selection"
     echo -e "${CYAN}Choose your training dataset:${NC}"
-    echo -e "  ${MAGENTA}1${NC}. ${YELLOW}🎲${NC} ClimbMix       (balanced, general purpose) ${WHITE}[DEFAULT]${NC}"
-    echo -e "  ${MAGENTA}2${NC}. ${BLUE}📚${NC} ArXiv          (research papers, academic)"
-    echo -e "  ${MAGENTA}3${NC}. ${GREEN}🌍${NC} Wikipedia      (general knowledge)"
-    echo -e "  ${MAGENTA}4${NC}. ${CYAN}💻${NC} Code           (programming code)"
-    echo -e "  ${MAGENTA}5${NC}. ${RED}❓${NC} StackExchange  (Q&A content)"
+    echo -e "  ${MAGENTA}1${NC}. ClimbMix       (balanced, general purpose) ${WHITE}[DEFAULT]${NC}"
+    echo -e "  ${MAGENTA}2${NC}. ArXiv          (research papers, academic)"
+    echo -e "  ${MAGENTA}3${NC}. Wikipedia      (general knowledge)"
+    echo -e "  ${MAGENTA}4${NC}. Code           (programming code)"
+    echo -e "  ${MAGENTA}5${NC}. StackExchange  (Q&A content)"
     echo ""
-    read -p "$(echo -e "${MAGENTA}▶${NC} Choose dataset (1-5) [default: 1]: ")" DATASET_CHOICE
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Choose dataset (1-5) [default: 1]: ")" DATASET_CHOICE
     DATASET_CHOICE=${DATASET_CHOICE:-1}
     
     case $DATASET_CHOICE in
@@ -537,52 +550,52 @@ if [ "$SKIP_PROMPTS" = false ]; then
         *) DATASET="climbmix" ;;
     esac
     
-    print_header "⚙️  Advanced Options"
+    print_header "[CONFIG] Advanced Options"
     echo -e "${CYAN}Customize data preparation:${NC}"
-    read -p "$(echo -e "${MAGENTA}▶${NC} Number of data shards [default: 10]: ")" SHARDS_INPUT
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Number of data shards [default: 10]: ")" SHARDS_INPUT
     if [[ "$SHARDS_INPUT" =~ ^[0-9]+$ ]]; then
         NUM_SHARDS=$SHARDS_INPUT
     fi
     
-    read -p "$(echo -e "${MAGENTA}▶${NC} Number of parallel workers [default: 42]: ")" WORKERS_INPUT
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Number of parallel workers [default: $WORKERS]: ")" WORKERS_INPUT
     if [[ "$WORKERS_INPUT" =~ ^[0-9]+$ ]]; then
         WORKERS=$WORKERS_INPUT
     fi
     
-    print_header "🤖 DeepSeek Integration"
-    read -p "$(echo -e "${MAGENTA}▶${NC} Setup DeepSeek Coder integration? (y/n) [default: n]: ")" DEEPSEEK_CHOICE
+    print_header "[AI] DeepSeek Integration"
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Setup DeepSeek Coder integration? (y/n) [default: n]: ")" DEEPSEEK_CHOICE
     if [[ "$DEEPSEEK_CHOICE" == "y" || "$DEEPSEEK_CHOICE" == "Y" ]]; then
         SETUP_DEEPSEEK=true
         
         echo ""
-        echo -e "${CYAN}📋 DeepSeek Feedback Configuration:${NC}"
+        echo -e "${CYAN}DeepSeek Feedback Configuration:${NC}"
         echo -e "  This is ${YELLOW}SEPARATE${NC} from training duration"
         echo -e "  Training Duration: ${CYAN}$TRAINING_MINUTES minutes${NC} (total run time)"
         echo -e "  Feedback Interval: How often DeepSeek improves code during training"
         echo ""
-        read -p "$(echo -e "${MAGENTA}▶${NC} Feedback interval in minutes [default: 5]: ")" IMPROVE_INPUT
+        read -p "$(echo -e "${MAGENTA}[?]${NC} Feedback interval in minutes [default: 5]: ")" IMPROVE_INPUT
         if [[ "$IMPROVE_INPUT" =~ ^[0-9]+$ ]]; then
             IMPROVE_INTERVAL_MINUTES=$IMPROVE_INPUT
         fi
-        echo -e "${GREEN}✓${NC} DeepSeek will provide feedback every ${CYAN}$IMPROVE_INTERVAL_MINUTES minutes${NC} during the ${CYAN}$TRAINING_MINUTES minute${NC} training run"
+        echo -e "${GREEN}[OK]${NC} DeepSeek will provide feedback every ${CYAN}$IMPROVE_INTERVAL_MINUTES minutes${NC} during the ${CYAN}$TRAINING_MINUTES minute${NC} training run"
     fi
 fi
 
 # Print final configuration
 print_banner
-print_header "📋 Configuration Summary"
-echo -e "${WHITE}⏱️  TIME CONFIGURATION:${NC}"
-echo -e "  🎯 Training Duration: ${CYAN}$(format_time $((TRAINING_MINUTES * 60)))${NC} (total run time)"
+print_header "[CONFIG] Configuration Summary"
+echo -e "${WHITE}[TIME] TRAINING:${NC}"
+echo -e "  Duration:  ${CYAN}$(format_time $((TRAINING_MINUTES * 60)))${NC}  (+ 10s auto-buffer)"
 if [ "$SETUP_DEEPSEEK" = true ]; then
-    echo -e "  🔄 DeepSeek Feedback: ${CYAN}$(format_time $((IMPROVE_INTERVAL_MINUTES * 60)))${NC} (feedback interval)"
+    echo -e "  DeepSeek Feedback: ${CYAN}$(format_time $((IMPROVE_INTERVAL_MINUTES * 60)))${NC} interval"
 fi
 echo ""
-echo -e "${WHITE}📊 DATA CONFIGURATION:${NC}"
+echo -e "${WHITE}[DATA] DATASET:${NC}"
 echo -e "  Dataset: ${CYAN}$DATASET${NC}"
-echo -e "  Data Shards: ${CYAN}$NUM_SHARDS${NC}"
+echo -e "  Shards:  ${CYAN}$NUM_SHARDS${NC}"
 echo -e "  Workers: ${CYAN}$WORKERS${NC}"
 echo ""
-echo -e "${WHITE}🤖 INTEGRATIONS:${NC}"
+echo -e "${WHITE}[AI] INTEGRATIONS:${NC}"
 if [ "$SETUP_DEEPSEEK" = true ]; then
     echo -e "  DeepSeek Coder: ${GREEN}Enabled${NC} (feedback every $(format_time $((IMPROVE_INTERVAL_MINUTES * 60))))"
 else
@@ -590,7 +603,7 @@ else
 fi
 echo ""
 
-read -p "$(echo -e "${MAGENTA}▶${NC} Start training pipeline? (y/n) [default: y]: ")" START_CHOICE
+read -p "$(echo -e "${MAGENTA}[?]${NC} Start training pipeline? (y/n) [default: y]: ")" START_CHOICE
 START_CHOICE=${START_CHOICE:-y}
 if [[ ! "$START_CHOICE" =~ ^[yY]$ ]]; then
     print_warning "Pipeline cancelled."
@@ -603,12 +616,124 @@ fi
 ensure_python_packages
 
 # ============================================================================
+# HARDWARE PROFILE DETECTION
+# ============================================================================
+print_header "[GPU] Hardware Profile Detection"
+
+HARDWARE_PROFILE="GENERIC"
+DETECTED_GPU="Unknown"
+DETECTED_VRAM=0
+
+# Detect GPU via Python
+GPU_DETECT_OUTPUT=$(python3 - <<'PYEOF' 2>/dev/null
+import sys
+try:
+    import torch
+    if not torch.cuda.is_available():
+        print("NOGPU|No GPU detected|0")
+        sys.exit(0)
+    name  = torch.cuda.get_device_name(0)
+    vram  = torch.cuda.get_device_properties(0).total_memory / 1024**3
+    print(f"GPU|{name}|{vram:.1f}")
+except Exception as e:
+    print(f"ERROR|{e}|0")
+PYEOF
+)
+
+IFS='|' read -r DETECT_STATUS DETECT_NAME DETECT_VRAM <<< "$GPU_DETECT_OUTPUT"
+
+if [ "$DETECT_STATUS" = "GPU" ]; then
+    DETECTED_GPU="$DETECT_NAME"
+    DETECTED_VRAM="$DETECT_VRAM"
+
+    # Determine auto profile
+    if echo "$DETECT_NAME" | grep -qi "A100" && (( $(echo "$DETECT_VRAM >= 70" | bc -l 2>/dev/null || echo 0) )); then
+        AUTO_PROFILE="A100_HIGH_PERFORMANCE"
+        AUTO_DESC="A100 80GB - High Performance Mode"
+        AUTO_BATCH=64; AUTO_WORKERS=42; AUTO_CUDA_FRAC="0.95"; AUTO_DEPTH=8
+    elif echo "$DETECT_NAME" | grep -qiE "RTX 40[6-9]0|RTX4060|RTX4070|RTX4080|RTX4090" && (( $(echo "$DETECT_VRAM <= 12" | bc -l 2>/dev/null || echo 0) )); then
+        AUTO_PROFILE="RTX4060_LAPTOP"
+        AUTO_DESC="RTX 4060 8GB - Laptop Mode"
+        AUTO_BATCH=4; AUTO_WORKERS=4; AUTO_CUDA_FRAC="0.85"; AUTO_DEPTH=4
+    else
+        AUTO_PROFILE="GENERIC"
+        AUTO_DESC="Generic GPU - Standard Mode"
+        AUTO_BATCH=8; AUTO_WORKERS=8; AUTO_CUDA_FRAC="0.80"; AUTO_DEPTH=6
+    fi
+
+    echo ""
+    echo -e "${CYAN}  Detected GPU : ${WHITE}${BOLD}$DETECTED_GPU${NC}"
+    echo -e "${CYAN}  VRAM         : ${WHITE}${BOLD}${DETECTED_VRAM} GB${NC}"
+    echo -e "${CYAN}  Auto Profile : ${GREEN}${BOLD}$AUTO_DESC${NC}"
+    echo ""
+    echo -e "${WHITE}  Profile Settings:${NC}"
+    echo -e "    Depth           : ${CYAN}$AUTO_DEPTH${NC} layers"
+    echo -e "    Batch Size      : ${CYAN}$AUTO_BATCH${NC}"
+    echo -e "    Workers         : ${CYAN}$AUTO_WORKERS${NC}"
+    echo -e "    CUDA Memory     : ${CYAN}$(echo "$AUTO_CUDA_FRAC * 100" | bc)%${NC}"
+    echo ""
+    echo -e "${WHITE}  Select profile to use:${NC}"
+    echo -e "    ${MAGENTA}1${NC}. Accept detected  ->  ${GREEN}$AUTO_DESC${NC}  ${WHITE}[DEFAULT]${NC}"
+    echo -e "    ${MAGENTA}2${NC}. Force A100 80GB  ->  High Performance Mode"
+    echo -e "    ${MAGENTA}3${NC}. Force RTX 4060   ->  Laptop 8GB Mode"
+    echo -e "    ${MAGENTA}4${NC}. Force Generic    ->  Standard Mode"
+    echo ""
+    read -p "$(echo -e "${MAGENTA}[?]${NC} Choose profile (1-4) [default: 1]: ")" HW_CHOICE
+    HW_CHOICE=${HW_CHOICE:-1}
+
+    case $HW_CHOICE in
+        1)
+            HARDWARE_PROFILE="$AUTO_PROFILE"
+            HW_BATCH=$AUTO_BATCH; HW_WORKERS=$AUTO_WORKERS; HW_CUDA_FRAC=$AUTO_CUDA_FRAC; HW_DEPTH=$AUTO_DEPTH
+            HW_DESC="$AUTO_DESC"
+            ;;
+        2)
+            HARDWARE_PROFILE="A100_HIGH_PERFORMANCE"
+            HW_BATCH=64; HW_WORKERS=42; HW_CUDA_FRAC="0.95"; HW_DEPTH=8
+            HW_DESC="A100 80GB - High Performance Mode"
+            ;;
+        3)
+            HARDWARE_PROFILE="RTX4060_LAPTOP"
+            HW_BATCH=4; HW_WORKERS=4; HW_CUDA_FRAC="0.85"; HW_DEPTH=4
+            HW_DESC="RTX 4060 8GB - Laptop Mode"
+            ;;
+        4)
+            HARDWARE_PROFILE="GENERIC"
+            HW_BATCH=8; HW_WORKERS=8; HW_CUDA_FRAC="0.80"; HW_DEPTH=6
+            HW_DESC="Generic GPU - Standard Mode"
+            ;;
+        *)
+            HARDWARE_PROFILE="$AUTO_PROFILE"
+            HW_BATCH=$AUTO_BATCH; HW_WORKERS=$AUTO_WORKERS; HW_CUDA_FRAC=$AUTO_CUDA_FRAC; HW_DEPTH=$AUTO_DEPTH
+            HW_DESC="$AUTO_DESC"
+            ;;
+    esac
+
+    # Override workers from hardware profile (unless user already set manually)
+    WORKERS=$HW_WORKERS
+
+    print_status "Profile confirmed: ${BOLD}$HW_DESC${NC}"
+    echo -e "  ${WHITE}Depth${NC}: ${CYAN}$HW_DEPTH${NC}  |  ${WHITE}Batch${NC}: ${CYAN}$HW_BATCH${NC}  |  ${WHITE}Workers${NC}: ${CYAN}$HW_WORKERS${NC}  |  ${WHITE}CUDA mem${NC}: ${CYAN}$(echo "$HW_CUDA_FRAC * 100" | bc)%${NC}"
+
+else
+    print_warning "GPU detection failed ($DETECT_NAME). Using GENERIC profile."
+    HARDWARE_PROFILE="GENERIC"
+    HW_BATCH=8; HW_WORKERS=8; HW_CUDA_FRAC="0.80"; HW_DEPTH=6
+    HW_DESC="Generic GPU - Standard Mode"
+fi
+
+# Export profile so train.py and setup_a100.py can read it
+export HARDWARE_PROFILE="$HARDWARE_PROFILE"
+export CUDA_MEMORY_FRACTION="$HW_CUDA_FRAC"
+echo ""
+
+# ============================================================================
 # STEP 1: Hardware Verification
 # ============================================================================
-print_header "🔧 Step 1/4: Hardware Verification"
+print_header "[CHECK] Step 1/4: Hardware Verification"
 STEP1_START=$(date +%s)
 
-if python setup_a100.py; then
+if HARDWARE_PROFILE="$HARDWARE_PROFILE" python setup_a100.py; then
     print_status "Hardware verification passed!"
     STEP1_TIME=$(($(date +%s) - STEP1_START))
 else
@@ -620,7 +745,7 @@ fi
 # ============================================================================
 # STEP 2: Data Preparation
 # ============================================================================
-print_header "📥 Step 2/4: Data Preparation ($DATASET)"
+print_header "[DATA] Step 2/4: Data Preparation ($DATASET)"
 STEP2_START=$(date +%s)
 
 print_info "Downloading $NUM_SHARDS shards with $WORKERS parallel workers..."
@@ -642,7 +767,7 @@ fi
 # STEP 3: DeepSeek Setup (Optional)
 # ============================================================================
 if [ "$SETUP_DEEPSEEK" = true ]; then
-    print_header "🤖 Step 3/4: DeepSeek Coder Integration Setup"
+    print_header "[AI] Step 3/4: DeepSeek Coder Integration Setup"
     STEP3_START=$(date +%s)
     
     print_info "Ensuring Ollama is running..."
@@ -653,7 +778,7 @@ if [ "$SETUP_DEEPSEEK" = true ]; then
         
         # Check if model already exists
         if ollama list | grep -q "deepseek-coder"; then
-            print_status "DeepSeek model already available! ✓"
+            print_status "DeepSeek model already available!"
         else
             print_info "Downloading DeepSeek model: $DEEPSEEK_MODEL"
             if ollama pull "$DEEPSEEK_MODEL"; then
@@ -680,30 +805,30 @@ fi
 # STEP 4/3: Training with Timer
 # ============================================================================
 TRAINING_STEP=$((STEP_COUNT))
-print_header "🚀 Step $TRAINING_STEP/$STEP_COUNT: Starting Training ($(format_time $((TRAINING_MINUTES * 60))))"
+print_header "[TRAIN] Step $TRAINING_STEP/$STEP_COUNT: Starting Training ($(format_time $((TRAINING_MINUTES * 60))))"
 
 TRAINING_START=$(date +%s)
 TRAINING_LIMIT_SECONDS=$((TRAINING_MINUTES * 60))
 
-echo -e "${WHITE}⚙️  Training Configuration:${NC}"
-echo -e "  ⏱️  Time Limit: ${CYAN}$(format_time $TRAINING_LIMIT_SECONDS)${NC}"
-echo -e "  🔄 Network Improvement: ${CYAN}$(format_time $((IMPROVE_INTERVAL_MINUTES * 60)))${NC}"
-echo -e "  🎯 Auto-stop: ${CYAN}Enabled${NC}"
-echo -e "  💾 GPU Target: ${CYAN}A100 80GB${NC}"
-echo -e "  📝 Log File: ${CYAN}$TRAINING_LOG${NC}"
+echo -e "${WHITE}[CONFIG] Training Configuration:${NC}"
+echo -e "  [TIME] Time Limit  : ${CYAN}$(format_time $TRAINING_LIMIT_SECONDS)${NC}  (+10s auto-buffer)"
+echo -e "  [GPU]  Profile     : ${CYAN}${HW_DESC:-$HARDWARE_PROFILE}${NC}"
+echo -e "  [STOP] Auto-stop   : ${CYAN}Enabled${NC}"
+echo -e "  [LOG]  Log File    : ${CYAN}$TRAINING_LOG${NC}"
 echo ""
-print_info "Starting training... (This will auto-stop at time limit)"
+print_info "Starting training... (will auto-stop at time limit)"
 echo ""
 
 log_msg "========== TRAINING START =========="
 log_msg "Duration: $(format_time $TRAINING_LIMIT_SECONDS)"
+log_msg "Hardware Profile: ${HW_DESC:-$HARDWARE_PROFILE}"
 log_msg "Dataset: $DATASET"
 log_msg "Shards: $NUM_SHARDS"
 log_msg "Workers: $WORKERS"
 log_msg "===================================="
 
 # Pre-training dependency check and auto-install
-print_info "🔍 Pre-training dependency check..."
+print_info "Pre-training dependency check..."
 ensure_python_packages
 
 # Calculate time budget in seconds (wall-clock training time, excluding startup)
@@ -725,14 +850,14 @@ else
 fi
 
 # Wait for actual training to start (skip setup/download time)
-print_info "⏳ Waiting for training to initialize..."
+print_info "Waiting for training to initialize..."
 TRAINING_STARTED=false
 for i in {1..120}; do
     if grep -q "step 00000" "$TRAINING_LOG" 2>/dev/null; then
         TRAINING_STARTED=true
         # Reset timer AFTER training actually starts (skip all download time)
         TRAINING_START=$(date +%s)
-        log_msg "✓ Training initialization complete, timer started"
+        log_msg "[OK] Training initialization complete, timer started"
         echo ""
         break
     fi
@@ -752,8 +877,8 @@ while kill -0 $TRAIN_PID 2>/dev/null; do
     REMAINING=$((TRAINING_LIMIT_SECONDS - ELAPSED))
     
     if [ $REMAINING -le 0 ]; then
-        print_error "⏱ Time limit reached! Stopping training..."
-        log_msg "⏱ TIME LIMIT REACHED - Stopping training"
+        print_error "Time limit reached. Stopping training..."
+        log_msg "[TIME] TIME LIMIT REACHED - Stopping training"
         kill $TRAIN_PID 2>/dev/null || true
         wait $TRAIN_PID 2>/dev/null || true
         break
@@ -763,12 +888,12 @@ while kill -0 $TRAIN_PID 2>/dev/null; do
     if [ $((ELAPSED - LAST_REPORT)) -ge 5 ] || [ $LAST_REPORT -eq 0 ]; then
         clear
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}║          🚀 TRAINING IN PROGRESS - LIVE METRICS 🚀         ║${NC}"
+        echo -e "${CYAN}║          TRAINING IN PROGRESS - LIVE METRICS               ║${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
         echo ""
         
         # Display time progress
-        echo -e "${WHITE}⏱️  Training Progress:${NC}"
+        echo -e "${WHITE}[TIME] Training Progress:${NC}"
         echo -e "  Elapsed: ${CYAN}$(format_time $ELAPSED)${NC} | Remaining: ${MAGENTA}$(format_time $REMAINING)${NC}"
         PROGRESS=$((ELAPSED * 100 / TRAINING_LIMIT_SECONDS))
         echo -e "  Progress: ${CYAN}[$(printf '#%.0s' $(seq 1 $((PROGRESS / 5))))$(printf '░%.0s' $(seq 1 $((20 - PROGRESS / 5))))${NC}] ${CYAN}${PROGRESS}%${NC}"
@@ -776,7 +901,7 @@ while kill -0 $TRAIN_PID 2>/dev/null; do
         
         # Display latest metrics from training
         if [ -f "$TRAINING_LOG" ]; then
-            echo -e "${WHITE}📊 Latest Training Metrics:${NC}"
+            echo -e "${WHITE}[METRICS] Latest Training Metrics:${NC}"
             # Get last line with step/loss info
             LAST_STEP=$(tail -50 "$TRAINING_LOG" 2>/dev/null | grep "step " | tail -1 || echo "")
             if [ ! -z "$LAST_STEP" ]; then
@@ -785,7 +910,7 @@ while kill -0 $TRAIN_PID 2>/dev/null; do
             
             # Extract and display individual metrics if available
             echo ""
-            echo -e "${WHITE}📈 Detailed Metrics:${NC}"
+            echo -e "${WHITE}[STATS] Detailed Metrics:${NC}"
             LAST_LOSS=$(tail -50 "$TRAINING_LOG" 2>/dev/null | grep -oP 'loss: \K[0-9.]+' | tail -1 || echo "-")
             LAST_MFU=$(tail -50 "$TRAINING_LOG" 2>/dev/null | grep -oP 'mfu: \K[0-9.]+' | tail -1 || echo "-")
             LAST_LRM=$(tail -50 "$TRAINING_LOG" 2>/dev/null | grep -oP 'lrm: \K[0-9.]+' | tail -1 || echo "-")
@@ -819,21 +944,21 @@ log_msg "========================================"
 # ============================================================================
 TOTAL_TIME=$(($(date +%s) - OVERALL_START))
 
-print_header "✨ Complete Pipeline Finished! ✨"
+print_header "[DONE] Pipeline Complete"
 
-echo -e "${WHITE}⏱️  Timing Summary:${NC}"
-echo -e "  🔧 Hardware Verification: ${CYAN}$(format_time $STEP1_TIME)${NC}"
-echo -e "  📥 Data Preparation: ${CYAN}$(format_time $STEP2_TIME)${NC}"
+echo -e "${WHITE}[TIME] Timing Summary:${NC}"
+echo -e "  [CHECK] Hardware Verification : ${CYAN}$(format_time $STEP1_TIME)${NC}"
+echo -e "  [DATA]  Data Preparation      : ${CYAN}$(format_time $STEP2_TIME)${NC}"
 if [ "$SETUP_DEEPSEEK" = true ]; then
-    echo -e "  🤖 DeepSeek Setup: ${CYAN}$(format_time $STEP3_TIME)${NC}"
+    echo -e "  [AI]    DeepSeek Setup        : ${CYAN}$(format_time $STEP3_TIME)${NC}"
 fi
-echo -e "  🚀 Training: ${CYAN}$(format_time $TRAINING_TIME)${NC}"
-echo -e "  📊 ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ⏰ ${MAGENTA}Total Pipeline Time: $(format_time $TOTAL_TIME)${NC}"
+echo -e "  [TRAIN] Training              : ${CYAN}$(format_time $TRAINING_TIME)${NC}"
+echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "  [TOTAL] Pipeline Time         : ${MAGENTA}$(format_time $TOTAL_TIME)${NC}"
 echo ""
 
-print_status "Training completed successfully! 🎉"
-echo -e "${GREEN}📝 Log file: $TRAINING_LOG${NC}"
+print_status "Training completed successfully!"
+echo -e "${GREEN}Log file: $TRAINING_LOG${NC}"
 
 # Generate graph from logs
 print_info "Generating training metrics graph from logs..."
@@ -845,38 +970,38 @@ else
     log_msg "No metrics graph produced (no step/loss lines found in log)"
 fi
 
-print_header "📊 Results & Analysis"
+print_header "[RESULTS] Output Files & Analysis"
 
-echo -e "${WHITE}📁 Output Files Generated:${NC}"
-echo -e "  📝 Training Log:"
-echo -e "     ${CYAN}$TRAINING_LOG${NC}"
-echo -e "     Complete training log with all metrics"
+echo -e "${WHITE}[FILES] Output Files Generated:${NC}"
+echo -e "  [LOG]   Training Log:"
+echo -e "          ${CYAN}$TRAINING_LOG${NC}"
+echo -e "          Complete training log with all metrics"
 echo ""
-echo -e "  📈 Metrics Graph (⭐ MAIN OUTPUT):"
-echo -e "     ${GREEN}assets/training_metrics_latest.png${NC}"
-echo -e "     Beautiful 4-subplot graph with loss, MFU, throughput, summary"
+echo -e "  [GRAPH] Metrics Graph (main output):"
+echo -e "          ${GREEN}assets/training_metrics_latest.png${NC}"
+echo -e "          4-subplot graph: loss, MFU, throughput, summary"
 echo ""
-echo -e "  📚 Graph Documentation:"
-echo -e "     ${CYAN}assets/README.md${NC}"
-echo -e "     Detailed info about graphs and how to use them"
+echo -e "  [DOCS]  Graph Documentation:"
+echo -e "          ${CYAN}assets/README.md${NC}"
+echo -e "          Detailed info about graphs and how to use them"
 echo ""
 
 # Show final metrics from log
 if [ -f "$TRAINING_LOG" ]; then
-    echo -e "${WHITE}🎯 Final Training Metrics:${NC}"
+    echo -e "${WHITE}[METRICS] Final Training Metrics:${NC}"
     tail -15 "$TRAINING_LOG" | grep -E "(val_bpb|loss|mfu|tokens|seconds)" || echo "  (View full log for details: cat $TRAINING_LOG)"
 fi
 echo ""
 
-echo -e "${MAGENTA}📈 Next Steps:${NC}"
-echo -e "  🖼️  View metrics graph (MAIN):     ${CYAN}open assets/training_metrics_latest.png${NC}"
-echo -e "  📂 View assets folder:            ${CYAN}open assets/${NC}"
-echo -e "  📖 View full log:                 ${CYAN}cat $TRAINING_LOG${NC}"
-echo -e "  � View graph docs:               ${CYAN}cat assets/README.md${NC}"
-echo -e "  🔄 Try different data:            ${CYAN}./autoresearcher --dataset arxiv${NC}"
-echo -e "  ⏰ Increase training:              ${CYAN}./autoresearcher --hours 2${NC}"
-echo -e "  🎓 View help:                     ${CYAN}./autoresearcher --help${NC}"
+echo -e "${MAGENTA}[NEXT] Next Steps:${NC}"
+echo -e "  View metrics graph  : ${CYAN}open assets/training_metrics_latest.png${NC}"
+echo -e "  View assets folder  : ${CYAN}open assets/${NC}"
+echo -e "  View full log       : ${CYAN}cat $TRAINING_LOG${NC}"
+echo -e "  View graph docs     : ${CYAN}cat assets/README.md${NC}"
+echo -e "  Try different data  : ${CYAN}./autoresearcher --dataset arxiv${NC}"
+echo -e "  Increase training   : ${CYAN}./autoresearcher --hours 2${NC}"
+echo -e "  View help           : ${CYAN}./autoresearcher --help${NC}"
 echo ""
 
-print_status "🎉 Pipeline complete! 📊 Check assets/training_metrics_latest.png for your graph!"
+print_status "Pipeline complete! Check assets/training_metrics_latest.png for your graph."
 echo ""

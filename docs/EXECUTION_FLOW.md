@@ -1,29 +1,29 @@
 # AutoResearcher: Visual Execution Summary
 
-## 🎬 The Complete Story - Start to Finish
+## [SCENE] The Complete Story - Start to Finish
 
-### 📍 You Are Here
+### [INFO] You Are Here
 ```
 User: ./autoresearcher --minutes 10
          │
-         └─→ 🎬 SCENE 1: Configuration & Prompts
-         └─→ 🎬 SCENE 2: Hardware Verification
-         └─→ 🎬 SCENE 3: Data Download
-         └─→ 🎬 SCENE 4: Tokenization
-         └─→ 🎬 SCENE 5: DeepSeek Setup (optional)
-         └─→ 🎬 SCENE 6: Training Loop
-         └─→ 🎬 SCENE 7: Graph Generation
-         └─→ 🏁 THE END: Results Ready!
+         └─→ [SCENE] SCENE 1: Configuration & Prompts
+         └─→ [SCENE] SCENE 2: Hardware Verification
+         └─→ [SCENE] SCENE 3: Data Download
+         └─→ [SCENE] SCENE 4: Tokenization
+         └─→ [SCENE] SCENE 5: DeepSeek Setup (optional)
+         └─→ [SCENE] SCENE 6: Training Loop
+         └─→ [SCENE] SCENE 7: Graph Generation
+         └─→ [END] THE END: Results Ready!
 ```
 
 ---
 
-## 🎬 SCENE 1: Configuration & Prompts (5 seconds)
+## [SCENE] SCENE 1: Configuration & Prompts (5 seconds)
 
 ```
 ╔═══════════════════════════════════════════════════════════════════╗
 ║                                                                   ║
-║          🚀 AutoResearcher - A100 80GB Complete Pipeline 🚀       ║
+║          [STARTUP] AutoResearcher - A100 80GB Complete Pipeline [STARTUP]       ║
 ║                                                                   ║
 ║  Optimized for: NVIDIA A100 80GB | Intel Xeon 42-core           ║
 ║                                                                   ║
@@ -40,46 +40,46 @@ User: ./autoresearcher --minutes 10
 ═══════════════════════════════════════════════════════════════════
 📋 Configuration Summary
 
-⏱️  TIME: 10 minutes
-📊 DATA: ClimbMix dataset, 10 shards, 42 workers
-🤖 AI: DeepSeek disabled
+[TIME] TIME: 10 minutes
+[DATA] DATA: ClimbMix dataset, 10 shards, 42 workers
+[CONFIG] AI: DeepSeek disabled
 
 Start? [y]: y
 ═══════════════════════════════════════════════════════════════════
 ```
 
-**Result:** ✓ All variables set, ready to proceed
+**Result:** [OK] All variables set, ready to proceed
 
 ---
 
-## 🎬 SCENE 2: Hardware Verification (2-5 seconds)
+## [SCENE] SCENE 2: Hardware Verification (2-5 seconds)
 
 ```bash
 $ python setup_a100.py
 ```
 
 ```
-🔧 Step 1/4: Hardware Verification
+[SETUP] Step 1/4: Hardware Verification
 ────────────────────────────────────
 
 Checking Python version...
-✓ Python 3.12.1
+[OK] Python 3.12.1
 
 Checking PyTorch & CUDA...
-✓ PyTorch 2.1.0
-✓ CUDA 12.1
-✓ Device: NVIDIA A100-SXM4-80GB
-✓ Compute Capability: 9.0 (Hopper GPU - OPTIMAL!)
-✓ GPU Memory: 80.0 GB
+[OK] PyTorch 2.1.0
+[OK] CUDA 12.1
+[OK] Device: NVIDIA A100-SXM4-80GB
+[OK] Compute Capability: 9.0 (Hopper GPU - OPTIMAL!)
+[OK] GPU Memory: 80.0 GB
 
 Checking CPU...
-✓ CPU Cores: 42 (Intel Xeon Platinum)
+[OK] CPU Cores: 42 (Intel Xeon Platinum)
 
 Checking System Memory...
-✓ System Memory: 256.0 GB (available: 200.0 GB)
+[OK] System Memory: 256.0 GB (available: 200.0 GB)
 
 ────────────────────────────────────
-✓ Hardware verification passed!
+[OK] Hardware verification passed!
 ```
 
 **File Involved:** `setup_a100.py`
@@ -92,24 +92,24 @@ Checking System Memory...
 
 ---
 
-## 🎬 SCENE 3: Data Download (30-120 seconds)
+## [SCENE] SCENE 3: Data Download (30-120 seconds)
 
 ```bash
 $ python prepare.py --dataset climbmix --num-shards 10 --download-workers 42
 ```
 
 ```
-📥 Step 2/4: Data Preparation (climbmix)
+[DOWNLOAD] Step 2/4: Data Preparation (climbmix)
 ──────────────────────────────────────────────────
 
 Downloading 10 shards with 42 parallel workers...
 
-[Worker 01] Downloading shard 00001.parquet ...  ✓ 412 MB
-[Worker 02] Downloading shard 00002.parquet ...  ✓ 405 MB
-[Worker 03] Downloading shard 00003.parquet ...  ✓ 418 MB
-[Worker 04] Downloading shard 00004.parquet ...  ✓ 410 MB
+[Worker 01] Downloading shard 00001.parquet ...  [OK] 412 MB
+[Worker 02] Downloading shard 00002.parquet ...  [OK] 405 MB
+[Worker 03] Downloading shard 00003.parquet ...  [OK] 418 MB
+[Worker 04] Downloading shard 00004.parquet ...  [OK] 410 MB
 ...
-[Worker 42] Downloading shard 00010.parquet ...  ✓ 408 MB
+[Worker 42] Downloading shard 00010.parquet ...  [OK] 408 MB
 
 Total downloaded: 4.1 GB in 45 seconds
 Download speed: 91 MB/s (parallel efficiency!)
@@ -131,7 +131,7 @@ Creating data loaders...
   • Total batches: 2,048
   • Tokens per epoch: ~268 million
 
-✓ Data preparation completed!
+[OK] Data preparation completed!
 ```
 
 **File Involved:** `prepare.py`
@@ -150,11 +150,11 @@ Creating data loaders...
     └── tokenizer.vocab        ← 8192 vocab
 ```
 
-**Key Thing:** Data is now cached! Next run (same dataset) will skip download. ⚡
+**Key Thing:** Data is now cached! Next run (same dataset) will skip download. [FAST]
 
 ---
 
-## 🎬 SCENE 4: Tokenization (Built into Prepare.py)
+## [SCENE] SCENE 4: Tokenization (Built into Prepare.py)
 
 ```
 Understanding the Token Conversion:
@@ -176,21 +176,21 @@ Model will convert these to 768-dimensional vectors
 
 ---
 
-## 🎬 SCENE 5: DeepSeek Setup (Optional, 20-60 seconds)
+## [SCENE] SCENE 5: DeepSeek Setup (Optional, 20-60 seconds)
 
 ```
 (This only runs if you chose --deepseek)
 
-🤖 Step 3/4: DeepSeek Coder Integration Setup
+[CONFIG] Step 3/4: DeepSeek Coder Integration Setup
 ─────────────────────────────────────────────
 
 Checking Ollama...
-✓ Ollama found at /usr/local/bin/ollama
-✓ Starting Ollama server...
-✓ Ollama ready at http://localhost:11434
+[OK] Ollama found at /usr/local/bin/ollama
+[OK] Starting Ollama server...
+[OK] Ollama ready at http://localhost:11434
 
 Checking DeepSeek model...
-✗ deepseek-coder:6.7b-base-q4_0 not found locally
+[ERROR] deepseek-coder:6.7b-base-q4_0 not found locally
 
 Downloading model (first time only)...
 ```
@@ -203,8 +203,8 @@ Downloading deepseek-coder:6.7b-base-q4_0...
 
 (takes 2-5 minutes depending on internet speed)
 
-✓ Model downloaded successfully!
-✓ DeepSeek ready for inference
+[OK] Model downloaded successfully!
+[OK] DeepSeek ready for inference
 
 ───────────────────────────────────────────
 
@@ -213,11 +213,11 @@ DeepSeek will provide code feedback every 5 minutes during training.
 
 **Files Involved:** `ollama_deepseek.py`, Ollama server
 
-**After Setup:** DeepSeek runs independently on port 11434. Ready! 🚀
+**After Setup:** DeepSeek runs independently on port 11434. Ready! [STARTUP]
 
 ---
 
-## 🎬 SCENE 6: Training Loop (600 seconds = 10 minutes)
+## [SCENE] SCENE 6: Training Loop (600 seconds = 10 minutes)
 
 ```bash
 $ export TIME_BUDGET_SECONDS=600
@@ -252,17 +252,17 @@ $ uv run train.py
 
 ```
 ╔════════════════════════════════════════════════════════════════╗
-║          🚀 TRAINING IN PROGRESS - LIVE METRICS 🚀             ║
+║          [STARTUP] TRAINING IN PROGRESS - LIVE METRICS [STARTUP]             ║
 ╚════════════════════════════════════════════════════════════════╝
 
-⏱️  Training Progress:
+[TIME] Training Progress:
   Elapsed: 2m 30s | Remaining: 7m 30s
   Progress: [##########░░░░░░░░░░░░░░░░░░░░░░] 25%
 
-📊 Latest Training Metrics:
+[DATA] Latest Training Metrics:
   step 00245 | loss: 3.456 | lrm: 1.00 | dt: 1000ms | tok/sec: 135,454 | mfu: 2.2% | epoch: 1 | remaining: 500s
 
-📈 Detailed Metrics:
+[METRICS] Detailed Metrics:
   Loss (BPB):        3.456     ← Lower is better! Started at 4.12
   MFU (%):           2.2       ← GPU efficiency
   LR Multiplier:     1.00      ← Schedule control
@@ -289,35 +289,35 @@ logs/training_20260311_120000.log
 
 ---
 
-## 🎬 SCENE 7: Graph Generation (2-5 seconds)
+## [SCENE] SCENE 7: Graph Generation (2-5 seconds)
 
 ```
 Generating training metrics graph...
 
 Step 7a: Parse log file
-  ✓ Read 246 step entries
-  ✓ Extracted loss values: [4.123, 4.087, 4.056, ..., 3.456]
-  ✓ Extracted MFU values: [2.1%, 2.1%, 2.2%, ..., 2.2%]
-  ✓ Extracted throughput: [132k, 133k, 134k, ..., 135k]
+  [OK] Read 246 step entries
+  [OK] Extracted loss values: [4.123, 4.087, 4.056, ..., 3.456]
+  [OK] Extracted MFU values: [2.1%, 2.1%, 2.2%, ..., 2.2%]
+  [OK] Extracted throughput: [132k, 133k, 134k, ..., 135k]
 
 Step 7b: Create visualization
-  ✓ Subplot 1 (top-left): Loss Curve
+  [OK] Subplot 1 (top-left): Loss Curve
     └─ Trends: 4.12 → 3.45 (↓ 16% improvement!)
   
-  ✓ Subplot 2 (top-right): MFU (%)
+  [OK] Subplot 2 (top-right): MFU (%)
     └─ Peak: 2.4%, Average: 2.1%
   
-  ✓ Subplot 3 (bottom-left): Throughput
+  [OK] Subplot 3 (bottom-left): Throughput
     └─ Average: 134.6k tokens/sec
   
-  ✓ Subplot 4 (bottom-right): Summary Stats
+  [OK] Subplot 4 (bottom-right): Summary Stats
     └─ Total steps: 245
     └─ Loss improvement: 16%
     └─ Training time: 10m 0s
 
 Step 7c: Save files
-  ✓ Saved: assets/training_metrics_20260311_120000.png (1.2 MB)
-  ✓ Updated: assets/training_metrics_latest.png
+  [OK] Saved: assets/training_metrics_20260311_120000.png (1.2 MB)
+  [OK] Updated: assets/training_metrics_latest.png
   ✓ Graph generation complete!
 ```
 

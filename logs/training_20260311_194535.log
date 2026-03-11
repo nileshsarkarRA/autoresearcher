@@ -1,0 +1,43 @@
+[2026-03-11 19:47:52] ========== TRAINING START ==========
+[2026-03-11 19:47:52] Duration: 10m 0s
+[2026-03-11 19:47:52] Hardware Profile: A100 80GB - High Performance Mode
+[2026-03-11 19:47:52] Dataset: climbmix
+[2026-03-11 19:47:52] Shards: 10
+[2026-03-11 19:47:52] Workers: 42
+[2026-03-11 19:47:52] ====================================
+[2026-03-11 19:47:56] Using 'uv' runner to start training (TIME_BUDGET=600s)
+
+[STARTUP] Verifying required packages...
+[Fallback] Installing missing dependency: psutil...
+[SUCCESS] Successfully installed psutil
+Vocab size: 8,192
+[BUILD] Building model: depth=8, batch_size=96
+Pre-build | VRAM - Allocated: 0.0GB | Reserved: 0.0GB | Available: 60.4GB | Total: 79.2GB
+[SUCCESS] Model built successfully with 8 layers
+Post-build | VRAM - Allocated: 0.5GB | Reserved: 0.6GB | Available: 59.8GB | Total: 79.2GB
+Parameter counts:
+  wte                     : 8,388,608
+  value_embeds            : 33,554,432
+  lm_head                 : 8,388,608
+  transformer_matrices    : 100,664,320
+  scalars                 : 16
+  total                   : 150,995,984
+Estimated FLOPs per token: 7.801467e+08
+Gradient accumulation steps: 5 (adjusted batch: 983,040 tokens)
+Scaling AdamW LRs by 1/sqrt(1024/768) = 0.866025
+
+[STARTUP] Starting training with CURRENT_BATCH_SIZE=96, CURRENT_DEPTH=8
+Time budget: 610s
+Gradient accumulation steps: 5
+
+[OOM] Out of memory during training at step 0, batch 0/5
+   Current: batch_size=96, depth=8
+   Error: CUDA out of memory. Tried to allocate 3.00 GiB. GPU 0 has a total capacity of 79...
+OOM | VRAM - Allocated: 59.7GB | Reserved: 59.8GB | Available: 0.5GB | Total: 79.2GB
+
+[TIP] Try reducing --minutes or use --deepseek flag to save memory
+[2026-03-11 19:49:09] ========== TRAINING COMPLETE ==========
+[2026-03-11 19:49:09] Total training time: 1m 17s
+[2026-03-11 19:49:09] ========================================
+[2026-03-11 19:49:09] Generating training metrics graph...
+[2026-03-11 19:49:11] Training metrics graph generated: assets/training_metrics_latest.png

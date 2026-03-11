@@ -1,6 +1,6 @@
 # AutoResearcher Codebase Flow Explanation
 
-## 🎯 Overview
+## [CORE] Overview
 When you run `./autoresearcher`, it executes a complete **4-step training pipeline** optimized for NVIDIA A100 80GB GPUs. Here's what happens, step by step, with all the files involved:
 
 ---
@@ -45,18 +45,18 @@ python setup_a100.py
 ```
 
 The script checks:
-- ✅ Python 3.12+ installed
-- ✅ PyTorch with CUDA support
-- ✅ GPU available (checks NVIDIA A100, gets total memory)
-- ✅ Compute capability (should be 9.0 for A100)
-- ✅ CPU cores (checks for 42 cores recommended)
-- ✅ System memory (256GB+ recommended)
-- ✅ Disk space available
+- [OK] Python 3.12+ installed
+- [OK] PyTorch with CUDA support
+- [OK] GPU available (checks NVIDIA A100, gets total memory)
+- [OK] Compute capability (should be 9.0 for A100)
+- [OK] CPU cores (checks for 42 cores recommended)
+- [OK] System memory (256GB+ recommended)
+- [OK] Disk space available
 
 **Output:**
 - Warnings if hardware doesn't meet recommendations
 - Errors if critical components missing
-- Success message: ✓ Hardware verification passed!
+- Success message: [OK] Hardware verification passed!
 
 **Why this matters:** The codebase is heavily optimized for A100 hardware. This check ensures you have the right setup.
 
@@ -264,17 +264,17 @@ The bash script monitors the training process and **kills it exactly when the ti
 Every 5 seconds, the script displays:
 ```
 ╔════════════════════════════════════════════════════════════╗
-║          🚀 TRAINING IN PROGRESS - LIVE METRICS 🚀         ║
+║          [STARTUP] TRAINING IN PROGRESS - LIVE METRICS [STARTUP]         ║
 ╚════════════════════════════════════════════════════════════╝
 
-⏱️  Training Progress:
+[TIME] Training Progress:
   Elapsed: 2m 30s | Remaining: 7m 30s
   Progress: [##########░░░░░░░░░░] 25%
 
-📊 Latest Training Metrics:
+[DATA] Latest Training Metrics:
   step 00245 | loss: 3.456 | mfu: 2.2% | tok/sec: 135,454
 
-📈 Detailed Metrics:
+[METRICS] Detailed Metrics:
   Loss (BPB):        3.456
   MFU (%):           2.2
   LR Multiplier:     1.00
@@ -320,7 +320,7 @@ After training finishes, the script runs a **Python sub-script embedded in the b
 
 ---
 
-## 📊 Data Flow Summary
+## [DATA] Data Flow Summary
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -329,7 +329,7 @@ After training finishes, the script runs a **Python sub-script embedded in the b
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ STEP 1: setup_a100.py                                       │
-│ ✓ Check Python 3.12+, PyTorch, CUDA, GPU memory, CPU cores │
+│ [OK] Check Python 3.12+, PyTorch, CUDA, GPU memory, CPU cores │
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
@@ -385,7 +385,7 @@ After training finishes, the script runs a **Python sub-script embedded in the b
 
 ---
 
-## 💾 Cached Data Locations
+## [CACHE] Cached Data Locations
 
 ```
 ~/.cache/autoresearch/
@@ -401,23 +401,23 @@ These are **downloaded once and reused** across runs (saves time & bandwidth!).
 
 ---
 
-## 🚀 Example Execution Trace
+## [STARTUP] Example Execution Trace
 
 ```bash
 $ ./autoresearcher --minutes 10 --dataset arxiv
 
-✓ Hardware verification passed! (2 seconds)
-  ✓ Python 3.12.1
-  ✓ PyTorch 2.1.0 + CUDA 12.1
-  ✓ GPU: NVIDIA A100 (80GB)
-  ✓ Compute Capability: 9.0
+[OK] Hardware verification passed! (2 seconds)
+  [OK] Python 3.12.1
+  [OK] PyTorch 2.1.0 + CUDA 12.1
+  [OK] GPU: NVIDIA A100 (80GB)
+  [OK] Compute Capability: 9.0
 
-✓ Data preparation completed! (45 seconds)
-  ✓ Downloaded 10 ArXiv shards (4.2 GB)
-  ✓ Trained BPE tokenizer (vocab size: 8192)
-  ✓ Created 10 data batches (batch size: 128)
+[OK] Data preparation completed! (45 seconds)
+  [OK] Downloaded 10 ArXiv shards (4.2 GB)
+  [OK] Trained BPE tokenizer (vocab size: 8192)
+  [OK] Created 10 data batches (batch size: 128)
 
-🚀 Training started! (600 seconds = 10 minutes)
+[STARTUP] Training started! (600 seconds = 10 minutes)
   step 00000 | loss: 4.123 | mfu: 2.1% | tok/sec: 132,456 | epoch: 1
   step 00010 | loss: 3.987 | mfu: 2.3% | tok/sec: 135,123 | epoch: 1
   step 00020 | loss: 3.856 | mfu: 2.4% | tok/sec: 136,789 | epoch: 1

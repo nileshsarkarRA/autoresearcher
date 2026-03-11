@@ -53,10 +53,10 @@ class OllamaDeepSeek:
         try:
             response = urlopen(Request(f"{self.base_url}/api/tags"), timeout=5)
             if response.status == 200:
-                logger.info(f"✓ Connected to Ollama at {self.base_url}")
+                logger.info(f"[OK] Connected to Ollama at {self.base_url}")
                 return True
         except URLError as e:
-            logger.error(f"✗ Cannot connect to Ollama at {self.base_url}")
+            logger.error(f"[ERR] Cannot connect to Ollama at {self.base_url}")
             logger.error(f"  Make sure Ollama is running: ollama serve")
             logger.error(f"  Or pull the model: ollama pull {self.model}")
             raise RuntimeError(f"Ollama connection failed: {e}")
@@ -336,8 +336,8 @@ if __name__ == "__main__":
     try:
         print("\nTesting Ollama DeepSeek integration...\n")
         coder = OllamaDeepSeek(model="deepseek-coder:6.7b-base-q4_0")
-        print(f"✓ Connected to Ollama")
-        print(f"✓ Model: {coder.model}")
+        print(f"[OK] Connected to Ollama")
+        print(f"[OK] Model: {coder.model}")
         
         # Generate a simple example
         code = coder.generate_code(
@@ -347,4 +347,4 @@ if __name__ == "__main__":
         print(f"\nGenerated Code:\n{code}\n")
         
     except RuntimeError as e:
-        print(f"\n⚠ Ollama not available: {e}\n")
+        print(f"\n[WARN] Ollama not available: {e}\n")

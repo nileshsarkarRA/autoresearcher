@@ -39,8 +39,11 @@ MAX_SEQ_LEN = 2048       # context length
 # TIME_BUDGET: Wall-clock training time (excludes startup/compilation)
 # Default: 300s (5 min) per Karpathy's design
 # Can be overridden: export TIME_BUDGET_SECONDS=600 for 10 minutes
+# Note: Extra 10 seconds buffer is added to ensure full 100% training completion
 import os
-TIME_BUDGET = int(os.environ.get('TIME_BUDGET_SECONDS', '300'))  # training time budget in seconds
+_TIME_BUDGET_BASE = int(os.environ.get('TIME_BUDGET_SECONDS', '300'))
+TIME_BUFFER = 10  # Extra seconds to ensure full training completion
+TIME_BUDGET = _TIME_BUDGET_BASE + TIME_BUFFER  # training time budget in seconds with buffer
 EVAL_TOKENS = 40 * 524288  # number of tokens for val eval
 
 # ---------------------------------------------------------------------------
@@ -155,13 +158,13 @@ def download_data(num_shards, download_workers=42):
             missing_shards.append(i)
     
     if not missing_shards:
-        print(f"✓ Data: all {len(ids)} shards already cached at {DATA_DIR}")
+        print(f"[OK] Data: all {len(ids)} shards already cached at {DATA_DIR}")
         print(f"  Skipping download (use cache)")
         return
 
     print(f"Data: Smart cache check")
-    print(f"  ✓ {len(existing_shards)} shards already cached")
-    print(f"  ⬇ {len(missing_shards)} shards need downloading...")
+    print(f"  [OK] {len(existing_shards)} shards already cached")
+    print(f"  [DL] {len(missing_shards)} shards need downloading...")
     print(f"  Using {max(1, min(download_workers, len(missing_shards)))} parallel workers\n")
 
     workers = max(1, min(download_workers, len(missing_shards)))
@@ -170,11 +173,11 @@ def download_data(num_shards, download_workers=42):
 
     ok = sum(1 for r in results if r)
     total_ready = len(existing_shards) + ok
-    print(f"\n✓ Data: {total_ready}/{len(ids)} shards ready at {DATA_DIR}")
+    print(f"\n[OK] Data: {total_ready}/{len(ids)} shards ready at {DATA_DIR}")
     
     if total_ready < len(ids):
         failed = len(ids) - total_ready
-        print(f"⚠ Warning: {failed} shards failed to download")
+        print(f"[WARN] Warning: {failed} shards failed to download")
 
 # ---------------------------------------------------------------------------
 # Tokenizer training
@@ -208,7 +211,7 @@ def train_tokenizer():
     token_bytes_path = os.path.join(TOKENIZER_DIR, "token_bytes.pt")
 
     if os.path.exists(tokenizer_pkl) and os.path.exists(token_bytes_path):
-        print(f"✓ Tokenizer: cached at {TOKENIZER_DIR}")
+        print(f"[OK] Tokenizer: cached at {TOKENIZER_DIR}")
         print(f"  Skipping training (using cache)")
         return
 
@@ -244,7 +247,7 @@ def train_tokenizer():
         pickle.dump(enc, f)
 
     t1 = time.time()
-    print(f"✓ Tokenizer: trained in {t1 - t0:.1f}s, saved to {tokenizer_pkl}")
+    print(f"[OK] Tokenizer: trained in {t1 - t0:.1f}s, saved to {tokenizer_pkl}")
 
     # --- Build token_bytes lookup for BPB evaluation ---
     print("Tokenizer: building token_bytes lookup...")
@@ -258,14 +261,14 @@ def train_tokenizer():
             token_bytes_list.append(len(token_str.encode("utf-8")))
     token_bytes_tensor = torch.tensor(token_bytes_list, dtype=torch.int32)
     torch.save(token_bytes_tensor, token_bytes_path)
-    print(f"✓ Tokenizer: saved token_bytes to {token_bytes_path}")
+    print(f"[OK] Tokenizer: saved token_bytes to {token_bytes_path}")
 
     # Sanity check
     test = "Hello world! Numbers: 123. Unicode: 你好"
     encoded = enc.encode_ordinary(test)
     decoded = enc.decode(encoded)
     assert decoded == test, f"Tokenizer roundtrip failed: {test!r} -> {decoded!r}"
-    print(f"✓ Tokenizer: sanity check passed (vocab_size={enc.n_vocab})")
+    print(f"[OK] Tokenizer: sanity check passed (vocab_size={enc.n_vocab})")
 
 # ---------------------------------------------------------------------------
 # Runtime utilities (imported by train.py)
