@@ -1,0 +1,413 @@
+# AutoResearcher Architecture Diagram
+
+## 🏗️ System Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          AUTORESEARCHER PIPELINE                         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  INPUT: User runs ./autoresearcher [--minutes 10] [--dataset arxiv]    │
+└─────────────────────────────────────────────────────────────────────────┘
+              ↓
+              ├──────────────────────────────────────────────────────────┐
+              │         PHASE 1: SETUP & CONFIGURATION                  │
+              ├──────────────────────────────────────────────────────────┤
+              │ • Parse command-line arguments                           │
+              │ • Show interactive prompts (if not automated)            │
+              │ • Create logs/ directory                                 │
+              │ • Set up variables: TRAINING_MINUTES, DATASET, WORKERS  │
+              └─────────────────┬────────────────────────────────────────┘
+                               ↓
+        ┌──────────────────────────────────────────────────────────────┐
+        │  PHASE 2: HARDWARE VERIFICATION (setup_a100.py)            │
+        ├──────────────────────────────────────────────────────────────┤
+        │  ✓ Python 3.12+        ✓ NVIDIA A100 GPU (80GB)            │
+        │  ✓ PyTorch + CUDA      ✓ Compute Capability 9.0            │
+        │  ✓ CPU Cores (42+)     ✓ System RAM (256GB+)               │
+        │                                                              │
+        │  Output: ✓ Hardware verification passed!                    │
+        └─────────────────┬───────────────────────────────────────────┘
+                         ↓
+      ┌────────────────────────────────────────────────────────────┐
+      │  PHASE 3: DATA PREPARATION (prepare.py)                  │
+      ├────────────────────────────────────────────────────────────┤
+      │                                                            │
+      │  Step 3a: Download Data Shards                           │
+      │  ┌──────────────────────────────────────────────────────┐│
+      │  │ HuggingFace Hub                                      ││
+      │  │ ├─ ClimbMix 400B (6542 shards, ~1.4TB)             ││
+      │  │ ├─ ArXiv Papers (500 shards, ~50GB)                ││
+      │  │ ├─ Wikipedia (200 shards, ~20GB)                   ││
+      │  │ ├─ GitHub Code (300 shards, ~60GB)                 ││
+      │  │ └─ StackExchange (400 shards, ~40GB)               ││
+      │  └──────────────────────────────────────────────────────┘│
+      │           ↓ (42 parallel workers download NUM_SHARDS)    │
+      │  ~/.cache/autoresearch/data/                             │
+      │  ├─ shard_00001.parquet (raw text)                       │
+      │  ├─ shard_00002.parquet                                  │
+      │  └─ ... (up to NUM_SHARDS)                               │
+      │                                                            │
+      │  Step 3b: Train BPE Tokenizer                            │
+      │  ┌──────────────────────────────────────────────────────┐│
+      │  │ Raw Text (Parquet files)                             ││
+      │  │      ↓                                                ││
+      │  │ Train BPE with:                                       ││
+      │  │  • VOCAB_SIZE: 8192                                   ││
+      │  │  • SPLIT_PATTERN: GPT-4 style                        ││
+      │  │      ↓                                                ││
+      │  │ Tokenizer Model                                       ││
+      │  │ ("Hello world" → [1502, 3829])                       ││
+      │  └──────────────────────────────────────────────────────┘│
+      │           ↓                                               │
+      │  ~/.cache/autoresearch/tokenizer/                         │
+      │  (BPE model saved for reuse)                              │
+      │                                                            │
+      │  Step 3c: Create Data Loaders                            │
+      │  ┌──────────────────────────────────────────────────────┐│
+      │  │ for each shard:                                      ││
+      │  │  1. Load parquet file                                ││
+      │  │  2. Tokenize all text                                ││
+      │  │  3. Split into chunks of MAX_SEQ_LEN=2048            ││
+      │  │  4. Group into batches                               ││
+      │  │                                                       ││
+      │  │ Dataloader yields: (batch, seq_len, vocab_size)      ││
+      │  │ Ready to feed into model!                            ││
+      │  └──────────────────────────────────────────────────────┘│
+      │                                                            │
+      │  Output: Data prepared for training ✓                    │
+      └──────────────┬──────────────────────────────────────────┘
+                    ↓
+        ┌──────────────────────────────────────────────────────┐
+        │  PHASE 4: DEEPSEEK SETUP (ollama_deepseek.py) [OPT] │
+        ├──────────────────────────────────────────────────────┤
+        │                                                      │
+        │  If --deepseek flag:                                │
+        │  • Start Ollama server (localhost:11434)            │
+        │  • Pull deepseek-coder:6.7b-base-q4_0 (~4.5 GB)    │
+        │  • Ready for AI-powered code suggestions            │
+        │                                                      │
+        │  During training:                                   │
+        │  • Every IMPROVE_INTERVAL_MINUTES                   │
+        │  • Query DeepSeek for code improvements             │
+        │  • Log suggestions (optional)                       │
+        │                                                      │
+        └──────────────┬───────────────────────────────────────┘
+                      ↓
+           ┌─────────────────────────────────────────────┐
+           │  PHASE 5: TRAINING LOOP (train.py)         │
+           │  ⭐ THE MAIN EVENT ⭐                       │
+           ├─────────────────────────────────────────────┤
+           │                                             │
+           │  5a: Load Model                            │
+           │  ┌───────────────────────────────────────┐ │
+           │  │ GPT Configuration:                    │ │
+           │  │ • Sequence length: 2048 tokens        │ │
+           │  │ • Vocab size: 32768                   │ │
+           │  │ • Layers: 12 Transformer blocks       │ │
+           │  │ • Heads: 6 attention heads            │ │
+           │  │ • Embedding dim: 768                  │ │
+           │  │ • Head dim: 768 / 6 = 128             │ │
+           │  │                                       │ │
+           │  │ Architecture:                         │ │
+           │  │ ┌─────────────────────────────────┐  │ │
+           │  │ │ Input: [batch, 2048] tokens     │  │ │
+           │  │ │        ↓                         │  │ │
+           │  │ │ Token Embedding [batch, 2048, 768] │ │
+           │  │ │        ↓                         │  │ │
+           │  │ │ Layer 1: Attention + MLP        │  │ │
+           │  │ │        ↓                         │  │ │
+           │  │ │ Layer 2: Attention + MLP        │  │ │
+           │  │ │        ↓                         │  │ │
+           │  │ │ ... (12 layers total)            │  │ │
+           │  │ │        ↓                         │  │ │
+           │  │ │ Output Head [batch, 2048, 32768]│  │ │
+           │  │ │        ↓ (softmax)               │  │ │
+           │  │ │ Probability per token            │  │ │
+           │  │ └─────────────────────────────────┘  │ │
+           │  │                                       │ │
+           │  │ Optimization:                        │ │
+           │  │ • Flash Attention 3 (FA3 kernels)   │ │
+           │  │ • RMSNorm for normalization         │ │
+           │  │ • Rotary embeddings (RoPE)          │ │
+           │  │ • Value Embeddings (ResFormer)      │ │
+           │  └───────────────────────────────────┘ │
+           │                                         │
+           │  5b: Training Loop (TIME_BUDGET seconds)│
+           │  ┌───────────────────────────────────┐ │
+           │  │ for step in range(num_steps):     │ │
+           │  │   1. x, y = dataloader.next()     │ │
+           │  │      Input/target token IDs       │ │
+           │  │      (batch_size=128)             │ │
+           │  │                                   │ │
+           │  │   2. logits = model(x)            │ │
+           │  │      Forward pass through 12      │ │
+           │  │      transformer blocks           │ │
+           │  │                                   │ │
+           │  │   3. loss = F.cross_entropy(...)  │ │
+           │  │      How wrong is prediction?     │ │
+           │  │      Target loss: <3.0 (from 4.0)│ │
+           │  │                                   │ │
+           │  │   4. loss.backward()              │ │
+           │  │      Compute gradients using      │ │
+           │  │      backpropagation              │ │
+           │  │                                   │ │
+           │  │   5. optimizer.step()             │ │
+           │  │      Update model weights         │ │
+           │  │      using gradient descent       │ │
+           │  │                                   │ │
+           │  │   6. log_metrics()                │ │
+           │  │      Every ~100 steps:            │ │
+           │  │      - Loss (BPB)                 │ │
+           │  │      - MFU (% A100 utilized)      │ │
+           │  │      - Throughput (tok/sec)       │ │
+           │  │      - Learning rate multiplier   │ │
+           │  │      - Remaining time             │ │
+           │  │                                   │ │
+           │  │   if elapsed >= TIME_BUDGET:      │ │
+           │  │     break  (auto-stop!)           │ │
+           │  │                                   │ │
+           │  │ Output: logs/training_*.log       │ │
+           │  └───────────────────────────────────┘ │
+           │                                         │
+           └────────────────┬────────────────────────┘
+                           ↓
+            ┌──────────────────────────────────────────┐
+            │  PHASE 6: METRICS & VISUALIZATION        │
+            ├──────────────────────────────────────────┤
+            │                                          │
+            │  6a: Parse Training Log                 │
+            │  ┌──────────────────────────────────┐  │
+            │  │ logs/training_20260311_*.log     │  │
+            │  │                                  │  │
+            │  │ Extract metrics:                 │  │
+            │  │ • steps: [0, 10, 20, 30, ...]   │  │
+            │  │ • losses: [4.12, 3.98, 3.85...] │  │
+            │  │ • mfu: [2.1%, 2.3%, 2.4%, ...]  │  │
+            │  │ • throughputs: [132k, 135k...]  │  │
+            │  └──────────────────────────────────┘  │
+            │                                          │
+            │  6b: Generate 4-Subplot Figure         │
+            │  ┌──────────────────────────────────┐  │
+            │  │ ╔════════════════════════════╗   │  │
+            │  │ ║ Top-Left: Loss Curve        ║   │  │
+            │  │ ║ • Shows downward trend      ║   │  │
+            │  │ ║ • Improvement % displayed   ║   │  │
+            │  │ ╚════════════════════════════╝   │  │
+            │  │ ╔════════════════════════════╗   │  │
+            │  │ ║ Top-Right: MFU (%)          ║   │  │
+            │  │ ║ • GPU efficiency            ║   │  │
+            │  │ ║ • Peak value annotated      ║   │  │
+            │  │ ╚════════════════════════════╝   │  │
+            │  │ ╔════════════════════════════╗   │  │
+            │  │ ║ Bottom-Left: Throughput     ║   │  │
+            │  │ ║ • Tokens/sec over time      ║   │  │
+            │  │ ║ • Average displayed         ║   │  │
+            │  │ ╚════════════════════════════╝   │  │
+            │  │ ╔════════════════════════════╗   │  │
+            │  │ ║ Bottom-Right: Summary Stats ║   │  │
+            │  │ ║ • Total steps, loss change  ║   │  │
+            │  │ ║ • Time metrics              ║   │  │
+            │  │ ╚════════════════════════════╝   │  │
+            │  └──────────────────────────────────┘  │
+            │                                          │
+            │  6c: Save Graphs                       │
+            │  • assets/training_metrics_*.png        │
+            │    (timestamped version)               │
+            │  • assets/training_metrics_latest.png   │
+            │    (always updated)                     │
+            │                                          │
+            └────────────┬─────────────────────────────┘
+                        ↓
+            ┌──────────────────────────────────────────┐
+            │  OUTPUT & SUMMARY                        │
+            ├──────────────────────────────────────────┤
+            │                                          │
+            │  📁 logs/                               │
+            │  └─ training_20260311_120000.log        │
+            │     (2000+ lines of training data)      │
+            │                                          │
+            │  📁 assets/                             │
+            │  ├─ training_metrics_latest.png ⭐     │
+            │  │  (Beautiful 4-subplot graph)        │
+            │  ├─ training_metrics_20260311_*.png     │
+            │  │  (Historical versions)              │
+            │  └─ README.md                          │
+            │     (Graph documentation)              │
+            │                                          │
+            │  📈 Sample Output:                      │
+            │  ✓ Training completed! 🎉              │
+            │  • 245 steps executed                  │
+            │  • Loss improved: 4.12 → 3.45 (↓16%)   │
+            │  • Peak MFU: 2.4%                      │
+            │  • Peak throughput: 136k tok/sec        │
+            │                                          │
+            └──────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Detailed Data Flow: Text → Tokens → Model → Predictions
+
+```
+RAW TEXT                          TOKENIZATION                    MODEL TRAINING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━
+
+"In machine learning"             BPE Tokenizer                  Tokens as Numbers
+                                  (8192 vocab)                   [input_ids]
+        ↓                                ↓                             ↓
+    Parquet File              Encode to integers          [456, 2341, 1092, ...]
+  (ClimbMix/ArXiv)                      ↓
+        ↓                     "In" → [456]              Embedding Layer
+  Download                   "machine" → [2341]        (768-dimensional)
+  (42 workers)               "learning" → [1092]              ↓
+        ↓                                                 Dense vectors
+  Cache @ ~/.cache/
+  autoresearch/data/                                   Transformer Block 1
+                                                        (Attention + MLP)
+                                                              ↓
+                                                       Transformer Block 2
+                                                              ↓
+                                                              ...
+                                                              ↓
+                                                       Transformer Block 12
+                                                              ↓
+                                                        Output Head
+                                                              ↓
+                                                     [batch, seq_len, 32768]
+                                                              ↓
+                                                          Softmax
+                                                              ↓
+                                                     Probability distribution
+                                                     (one per possible token)
+                                                              ↓
+                                                     "most likely next token"
+                                                     (highest probability)
+```
+
+---
+
+## ⚙️ File Dependencies & Relationships
+
+```
+autoresearcher (bash orchestrator)
+    ├─ calls → setup_a100.py
+    │          └─ imports: psutil, torch
+    │
+    ├─ calls → prepare.py
+    │          ├─ imports: requests, pyarrow, rustbpe, tiktoken, torch
+    │          └─ creates: ~/.cache/autoresearch/data/
+    │                      ~/.cache/autoresearch/tokenizer/
+    │
+    ├─ calls → ollama_deepseek.py (optional)
+    │          ├─ imports: urllib, json, logging
+    │          └─ calls: Ollama API (localhost:11434)
+    │
+    ├─ calls → train.py
+    │          ├─ imports: torch, kernels, prepare
+    │          │           (reads from prepare.py)
+    │          ├─ uses: ~/. cache/autoresearch/data/
+    │          │        ~/.cache/autoresearch/tokenizer/
+    │          └─ writes: logs/training_*.log
+    │                     (via tee redirection)
+    │
+    └─ generates: Graph using embedded Python
+               ├─ reads: logs/training_*.log
+               ├─ imports: matplotlib, pathlib, json, re
+               └─ writes: assets/training_metrics_*.png
+```
+
+---
+
+## 🚀 Memory & GPU Usage During Each Phase
+
+```
+PHASE 1 (Setup)              PHASE 2 (Hardware)      PHASE 3 (Data Download)
+┌──────────────────┐         ┌──────────────────┐    ┌──────────────────┐
+│ RAM: ~100 MB     │         │ RAM: ~200 MB     │    │ RAM: ~1-2 GB     │
+│ GPU: 0 MB        │   ──→   │ GPU: ~500 MB     │ ──→│ GPU: 0 MB        │
+│ Disk: ~500 KB    │         │ Disk: 0 MB       │    │ Disk: NUM_SHARDS*
+│                  │         │ (temp files)     │    │       × 400MB     │
+└──────────────────┘         └──────────────────┘    └──────────────────┘
+      1 sec                        2 sec                   45 sec
+
+PHASE 4 (Tokenize)           PHASE 5 (Training)      PHASE 6 (Graphs)
+┌──────────────────┐         ┌──────────────────┐    ┌──────────────────┐
+│ RAM: ~4-8 GB     │         │ RAM: ~40 GB      │    │ RAM: ~500 MB     │
+│ GPU: 0 MB        │   ──→   │ GPU: ~78 GB      │ ──→│ GPU: 0 MB        │
+│ Disk: ~2 GB      │         │ Disk: ~100 MB    │    │ Disk: ~5 MB      │
+│ (tokenizer)      │         │ (logs)           │    │ (graphs)         │
+└──────────────────┘         └──────────────────┘    └──────────────────┘
+      10 sec                  600 sec (10 min)       5 sec
+
+TOTAL: ~662 seconds (11 minutes) for a 10-minute training run
+       (data prep takes longer than training!)
+```
+
+---
+
+## 📊 Training Loop Detail: Single Step
+
+```
+INPUT: Batch of 2048 tokens (batch_size=128)
+       ↓
+       ├─→ Forward Pass:
+       │   1. Embed tokens → [128, 2048, 768]
+       │   2. For each of 12 layers:
+       │      a. Attention head: query/key/value projections
+       │         • Flash Attention 3 CUDA kernel (FAST!)
+       │         • Causal masking (can't see future)
+       │      b. MLP: dense feed-forward
+       │      c. Residual connection & normalization
+       │   3. Output head: logits [128, 2048, 32768]
+       │   4. Loss: cross_entropy(logits, targets)
+       │      • How wrong is prediction?
+       │
+       ├─→ Backward Pass:
+       │   1. Compute gradients w.r.t. loss
+       │   2. Backpropagation through all 12 layers
+       │   3. Accumulate gradients in each parameter
+       │
+       ├─→ Optimizer Step:
+       │   1. Adam update: weights -= learning_rate * gradients
+       │   2. Update all ~35M parameters
+       │   3. Zero gradients for next iteration
+       │
+       └─→ Logging:
+           1. Extract metrics from training
+           2. Append to log file
+           3. Update terminal display
+           
+TIME PER STEP: ~1000ms (1 second)
+STEPS IN 10 MINUTES: ~600 steps
+TOKEN THROUGHPUT: ~135,000 tokens/second (on A100!)
+```
+
+---
+
+## 🎯 Key Optimization Points for A100
+
+```
+Flash Attention 3 (FA3)
+├─ Custom CUDA kernels for A100 Hopper arch
+├─ Reduces memory: O(N²) → O(N) for attention
+└─ Speedup: 5-100x vs standard PyTorch attention
+
+Mixed Precision (if enabled)
+├─ Forward: float32
+├─ Compute: float16 / bfloat16
+├─ Backward: float32 (for stability)
+└─ Result: 2x speedup, same accuracy
+
+Tensor Core Utilization
+├─ A100 has 432 TF32 tensor cores per GPU
+├─ Each core does 256 FLOPs per clock
+├─ FA3 kernels directly use tensor cores
+└─ Result: MFU (Model FLOPs Utilization) 15-30%
+
+Expandable Segments
+├─ Dynamic CUDA memory allocation
+├─ Grows as needed instead of preallocating
+└─ Allows larger batches with less wasted memory
+```
