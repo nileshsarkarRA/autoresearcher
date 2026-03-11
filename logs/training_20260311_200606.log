@@ -31,3 +31,4 @@ Scaling AdamW LRs by 1/sqrt(1024/768) = 0.866025
 Time budget: 310s
 Gradient accumulation steps: 4
 step 00000 (0.0%) | loss: 9.011503 | lrm: 1.00 | dt: 20182ms | tok/sec: 25,977 | mfu: 0.4% | epoch: 1 | remaining: 310s    [2026-03-11 20:07:23] [OK] Training initialization complete, timer started
+step 00001 (0.0%) | loss: 8.767370 | lrm: 1.00 | dt: 7746ms | tok/sec: 67,689 | mfu: 1.1% | epoch: 1 | remaining: 310s    step 00002 (0.0%) | loss: 8.261073 | lrm: 1.00 | dt: 7677ms | tok/sec: 68,293 | mfu: 1.1% | epoch: 1 | remaining: 310s    
